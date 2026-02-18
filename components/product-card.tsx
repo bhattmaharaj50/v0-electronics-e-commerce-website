@@ -30,6 +30,16 @@ export function ProductCard({ product }: { product: Product }) {
 
       {/* Info */}
       <div className="flex flex-1 flex-col gap-2 p-4">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {product.brand}
+          </span>
+          {product.size && (
+            <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              {product.size}
+            </span>
+          )}
+        </div>
         <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
           {product.name}
         </h3>

@@ -38,7 +38,7 @@ export default function ContactPage() {
           {/* Contact Cards */}
           <div className="grid gap-4 sm:grid-cols-2">
             <a
-              href="https://wa.me/254700000000"
+              href="https://wa.me/254793823013"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-start gap-4 rounded-xl border border-border bg-card p-5 transition-colors hover:border-muted-foreground/30"
@@ -53,7 +53,7 @@ export default function ContactPage() {
             </a>
 
             <a
-              href="tel:+254700000000"
+              href="tel:+254793823013"
               className="flex items-start gap-4 rounded-xl border border-border bg-card p-5 transition-colors hover:border-muted-foreground/30"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">
@@ -61,7 +61,7 @@ export default function ContactPage() {
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-foreground">Phone</h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">+254 700 000 000</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">+254 793 823 013</p>
               </div>
             </a>
 
