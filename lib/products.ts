@@ -1,3 +1,57 @@
+export interface Product {
+  id: string
+  name: string
+  price: number
+  originalPrice?: number
+  description: string
+  category: string
+  brand: string
+  size?: string
+  image: string
+  rating: number
+  reviews: number
+  badge?: string
+  featured?: boolean
+}
+
+export const categories = [
+  { slug: "tvs", name: "TVs", icon: "Tv" },
+  { slug: "soundbars", name: "Soundbars & Speakers", icon: "Speaker" },
+  { slug: "fridges", name: "Fridges", icon: "Refrigerator" },
+  { slug: "washing-machines", name: "Washing Machines", icon: "WashingMachine" },
+  { slug: "cookers", name: "Cookers", icon: "Flame" },
+  { slug: "chargers-accessories", name: "Chargers & Accessories", icon: "Cable" },
+]
+
+export function formatPrice(price: number): string {
+  return new Intl.NumberFormat("en-KE", {
+    style: "currency",
+    currency: "KES",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(price)
+}
+
+export function getFeaturedProducts(): Product[] {
+  return products.slice(0, 8)
+}
+
+export function getDealsOfTheDay(): Product[] {
+  return products.filter((p) => p.originalPrice).slice(0, 4).length > 0
+    ? products.filter((p) => p.originalPrice).slice(0, 4)
+    : products.slice(0, 4)
+}
+
+export function getBrandsByCategory(category: string): string[] {
+  const filtered = category ? products.filter((p) => p.category === category) : products
+  return [...new Set(filtered.map((p) => p.brand))].sort()
+}
+
+export function getSizesByCategory(category: string): string[] {
+  const filtered = category ? products.filter((p) => p.category === category) : products
+  return [...new Set(filtered.map((p) => p.size).filter(Boolean) as string[])].sort()
+}
+
 export const products: Product[] = [
   {
     "id": "ck-001",
