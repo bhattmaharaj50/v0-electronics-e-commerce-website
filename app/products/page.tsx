@@ -1,16 +1,23 @@
-import { products } from "@/data/products";
+"use client"
 
-export default function Products() {
+import { Suspense } from "react"
+import { ProductsContent } from "@/components/products-content"
+
+export default function ProductsPage() {
   return (
-    <div className="grid grid-cols-3 gap-6 p-4">
-      {products.map((p) => (
-        <div key={p.name} className="border rounded p-4">
-          <img src={p.image} className="h-40 object-cover w-full" alt={p.name} />
-          <h2 className="mt-2 font-bold">{p.name}</h2>
-          <p className="text-green-600">KES {p.price}</p>
-          <p dangerouslySetInnerHTML={{ __html: p.description }} className="mt-1 text-sm"></p>
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
+          <div className="h-8 w-48 animate-pulse rounded-lg bg-secondary" />
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-80 animate-pulse rounded-xl bg-secondary" />
+            ))}
+          </div>
         </div>
-      ))}
-    </div>
-  );
+      }
+    >
+      <ProductsContent />
+    </Suspense>
+  )
 }
