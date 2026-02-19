@@ -1,7 +1,6 @@
 [build]
-  command = "npm run build"
+  command = "echo 'Using pre-built static files'"
   publish = "out"
 
 [build.environment]
   NODE_VERSION = "20"
-  NPM_FLAGS = "--legacy-peer-deps"
