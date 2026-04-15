@@ -2,11 +2,22 @@
 
 import { useState, useMemo } from "react"
 import { useSearchParams } from "next/navigation"
-import { products, categories, getBrandsByCategory, getSizesByCategory } from "@/lib/products"
+import { useProductStore } from "@/lib/product-store"
 import { ProductCard } from "@/components/product-card"
 import { SlidersHorizontal, X } from "lucide-react"
 
+function getBrandsByCategory(products: ReturnType<typeof useProductStore>["products"], category: string): string[] {
+  const filtered = category ? products.filter((p) => p.category === category) : products
+  return [...new Set(filtered.map((p) => p.brand))].sort()
+}
+
+function getSizesByCategory(products: ReturnType<typeof useProductStore>["products"], category: string): string[] {
+  const filtered = category ? products.filter((p) => p.category === category) : products
+  return [...new Set(filtered.map((p) => p.size).filter(Boolean) as string[])].sort()
+}
+
 export function ProductsContent() {
+  const { products, categories } = useProductStore()
   const searchParams = useSearchParams()
   const initialCategory = searchParams.get("category") || ""
   const searchQuery = searchParams.get("search") || ""
@@ -19,12 +30,12 @@ export function ProductsContent() {
   const [filtersOpen, setFiltersOpen] = useState(false)
 
   const availableBrands = useMemo(
-    () => getBrandsByCategory(selectedCategory),
-    [selectedCategory]
+    () => getBrandsByCategory(products, selectedCategory),
+    [products, selectedCategory]
   )
   const availableSizes = useMemo(
-    () => getSizesByCategory(selectedCategory),
-    [selectedCategory]
+    () => getSizesByCategory(products, selectedCategory),
+    [products, selectedCategory]
   )
 
   const filteredProducts = useMemo(() => {
@@ -70,7 +81,7 @@ export function ProductsContent() {
     }
 
     return result
-  }, [selectedCategory, selectedBrand, selectedSize, searchQuery, showDeals, sortBy])
+  }, [products, selectedCategory, selectedBrand, selectedSize, searchQuery, showDeals, sortBy])
 
   const clearAllFilters = () => {
     setSelectedCategory("")

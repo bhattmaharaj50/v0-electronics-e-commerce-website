@@ -1,12 +1,13 @@
 "use client"
 
-import { getFeaturedProducts } from "@/lib/products"
+import { useProductStore } from "@/lib/product-store"
 import { ProductCard } from "@/components/product-card"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 
 export function FeaturedProducts() {
-  const featured = getFeaturedProducts().slice(0, 8)
+  const { products } = useProductStore()
+  const featured = products.slice(0, 8)
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-16 lg:px-8">

@@ -7,6 +7,11 @@ export function generateStaticParams() {
   }))
 }
 
-export default function ProductDetailPage({ params }: { params: { id: string } }) {
-  return <ProductDetailClient id={params.id} />
+export default async function ProductDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  return <ProductDetailClient id={id} />
 }

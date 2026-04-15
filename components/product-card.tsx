@@ -6,14 +6,20 @@ import type { Product } from "@/lib/products"
 import { formatPrice } from "@/lib/products"
 import { useCart } from "@/lib/cart-context"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()
+}
 
 export function ProductCard({ product }: { product: Product }) {
   const { addToCart } = useCart()
+  const router = useRouter()
 
   return (
-    <Link href={`/products/${product.id}`} className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-all hover:border-muted-foreground/30">
+    <div className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-all hover:border-muted-foreground/30">
       {/* Image */}
-      <div className="relative aspect-square overflow-hidden bg-secondary">
+      <Link href={`/products/${product.id}`} className="relative aspect-square overflow-hidden bg-secondary block">
         <Image
           src={product.image}
           alt={product.name}
@@ -26,7 +32,7 @@ export function ProductCard({ product }: { product: Product }) {
             {product.badge}
           </span>
         )}
-      </div>
+      </Link>
 
       {/* Info */}
       <div className="flex flex-1 flex-col gap-2 p-4">
@@ -40,11 +46,13 @@ export function ProductCard({ product }: { product: Product }) {
             </span>
           )}
         </div>
-        <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
-          {product.name}
-        </h3>
+        <Link href={`/products/${product.id}`}>
+          <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground hover:underline">
+            {product.name}
+          </h3>
+        </Link>
         <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-          {product.description}
+          {stripHtml(product.description)}
         </p>
 
         {/* Rating */}
@@ -79,30 +87,23 @@ export function ProductCard({ product }: { product: Product }) {
         {/* Buttons */}
         <div className="mt-2 flex gap-2">
           <button
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              addToCart(product)
-            }}
+            onClick={() => addToCart(product)}
             className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
           >
             <ShoppingCart className="h-3.5 w-3.5" />
             Add to Cart
           </button>
-          <Link
-            href="/cart"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
+          <button
+            onClick={() => {
               addToCart(product)
-              window.location.href = '/cart'
+              router.push("/cart")
             }}
             className="flex items-center justify-center rounded-lg border border-border px-3 py-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-secondary"
           >
             Buy Now
-          </Link>
+          </button>
         </div>
       </div>
-    </Link>
+    </div>
   )
 }

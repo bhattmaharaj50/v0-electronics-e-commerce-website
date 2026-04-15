@@ -4,10 +4,13 @@ import { useState } from "react"
 import Image from "next/image"
 import { Star, ShoppingCart, Heart, Share2, ArrowLeft, Minus, Plus } from "lucide-react"
 import Link from "next/link"
-import { products, formatPrice } from "@/lib/products"
+import { formatPrice } from "@/lib/products"
 import { useCart } from "@/lib/cart-context"
+import { useProductStore } from "@/lib/product-store"
+import { ProductCard } from "@/components/product-card"
 
 export default function ProductDetailClient({ id }: { id: string }) {
+  const { products } = useProductStore()
   const product = products.find((p) => p.id === id)
   const [quantity, setQuantity] = useState(1)
   const { addToCart } = useCart()
@@ -183,25 +186,7 @@ export default function ProductDetailClient({ id }: { id: string }) {
           <h2 className="mb-6 text-2xl font-bold text-foreground">Related Products</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {relatedProducts.map((relatedProduct) => (
-              <Link
-                key={relatedProduct.id}
-                href={`/products/${relatedProduct.id}`}
-                className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-all hover:border-muted-foreground/30"
-              >
-                <div className="relative aspect-square overflow-hidden bg-secondary">
-                  <Image
-                    src={relatedProduct.image}
-                    alt={relatedProduct.name}
-                    fill
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                  />
-                </div>
-                <div className="flex flex-1 flex-col gap-2 p-4">
-                  <h3 className="line-clamp-2 text-sm font-semibold text-foreground">{relatedProduct.name}</h3>
-                  <p className="text-lg font-bold text-foreground">{formatPrice(relatedProduct.price)}</p>
-                </div>
-              </Link>
+              <ProductCard key={relatedProduct.id} product={relatedProduct} />
             ))}
           </div>
         </div>

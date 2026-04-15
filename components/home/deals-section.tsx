@@ -1,11 +1,13 @@
 "use client"
 
-import { getDealsOfTheDay } from "@/lib/products"
+import { useProductStore } from "@/lib/product-store"
 import { ProductCard } from "@/components/product-card"
 import { Clock } from "lucide-react"
 
 export function DealsSection() {
-  const deals = getDealsOfTheDay().slice(0, 4)
+  const { products } = useProductStore()
+  const deals = products.filter((p) => p.originalPrice).slice(0, 4)
+  const display = deals.length > 0 ? deals : products.slice(0, 4)
 
   return (
     <section className="border-y border-border bg-card">
@@ -23,7 +25,7 @@ export function DealsSection() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {deals.map((product) => (
+          {display.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
