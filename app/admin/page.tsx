@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation"
 import { Zap, Eye, EyeOff, Lock } from "lucide-react"
 
 const ADMIN_USERNAME = "admin"
-const ADMIN_PASSWORD = "25flow2024"
-const AUTH_KEY = "25flow_admin_auth"
+const ADMIN_PASSWORD = "munex2024"
+const AUTH_KEY = "munex_admin_auth"
 
 export default function AdminLoginPage() {
   const router = useRouter()
@@ -56,7 +56,7 @@ export default function AdminLoginPage() {
           </div>
           <div className="text-center">
             <h1 className="text-2xl font-bold text-foreground">Admin Portal</h1>
-            <p className="mt-1 text-sm text-muted-foreground">25FlowElectronics Management</p>
+            <p className="mt-1 text-sm text-muted-foreground">Munex Electronics Management</p>
           </div>
         </div>
 

@@ -13,7 +13,7 @@ export function Footer() {
                 <Zap className="h-4 w-4 text-primary-foreground" />
               </div>
               <span className="text-base font-bold text-foreground">
-                25Flow<span className="text-muted-foreground">Electronics</span>
+                Munex<span className="text-muted-foreground">Electronics</span>
               </span>
             </Link>
             <p className="text-sm leading-relaxed text-muted-foreground">
@@ -70,18 +70,18 @@ export function Footer() {
               Contact Us
             </h3>
             <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
-              <li>Nairobi, Kenya</li>
+              <li>Narok, Kenya</li>
               <li>
-                <a href="tel:+254793823013" className="transition-colors hover:text-foreground">
-                  +254 793 823 013
+                <a href="tel:+254720856892" className="transition-colors hover:text-foreground">
+                  0720 856 892
                 </a>
               </li>
               <li>
                 <a
-                  href="mailto:info@25flowelectronics.co.ke"
+                  href="mailto:info@munexelectronics.co.ke"
                   className="transition-colors hover:text-foreground"
                 >
-                  info@25flowelectronics.co.ke
+                  info@munexelectronics.co.ke
                 </a>
               </li>
             </ul>
@@ -102,7 +102,7 @@ export function Footer() {
         </div>
 
         <div className="mt-10 border-t border-border pt-6 text-center text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} 25FlowElectronics. All rights reserved.
+          &copy; {new Date().getFullYear()} Munex Electronics. All rights reserved.
         </div>
       </div>
     </footer>

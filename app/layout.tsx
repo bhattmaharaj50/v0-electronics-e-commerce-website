@@ -15,13 +15,13 @@ const _spaceGrotesk = Space_Grotesk({
 })
 
 export const metadata: Metadata = {
-  title: "25FlowElectronics | Kenya's Trusted Electronics Store",
+  title: "Munex Electronics | Kenya's Trusted Electronics Store",
   description:
     "Shop the latest TVs, phones, fridges, gaming consoles, headphones and more at competitive prices. Fast delivery across Kenya.",
   keywords:
-    "electronics, Kenya, Nairobi, TVs, phones, Samsung, iPhone, PlayStation, Xbox, fridges, headphones, online shopping",
+    "electronics, Kenya, Narok, TVs, phones, Samsung, iPhone, PlayStation, Xbox, fridges, headphones, online shopping",
   openGraph: {
-    title: "25FlowElectronics | Kenya's Trusted Electronics Store",
+    title: "Munex Electronics | Kenya's Trusted Electronics Store",
     description:
       "Quality electronics at competitive prices. Delivered to your doorstep in Kenya.",
     type: "website",

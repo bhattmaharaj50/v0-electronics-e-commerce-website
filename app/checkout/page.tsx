@@ -3,18 +3,22 @@
 import { useState } from "react"
 import { useCart } from "@/lib/cart-context"
 import { formatPrice } from "@/lib/products"
-import { CheckCircle2, ArrowLeft, Phone, MessageCircle } from "lucide-react"
+import { CheckCircle2, ArrowLeft, Phone, MessageCircle, Copy, Check } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 
 type PaymentMethod = "mpesa" | "pay-on-delivery"
 type CheckoutStep = "details" | "payment" | "confirmation"
 
+const MPESA_NUMBER = "0720856892"
+const WHATSAPP_NUMBER = "254720856892"
+
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart()
   const [step, setStep] = useState<CheckoutStep>("details")
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("mpesa")
-  const [orderNumber] = useState(() => `25FE-${Date.now().toString(36).toUpperCase()}`)
+  const [orderNumber] = useState(() => `MNX-${Date.now().toString(36).toUpperCase()}`)
+  const [copied, setCopied] = useState(false)
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -23,7 +27,7 @@ export default function CheckoutPage() {
     phone: "",
     address: "",
     city: "",
-    mpesaPhone: "",
+    mpesaCode: "",
   })
 
   const deliveryFee = totalPrice > 10000 ? 0 : 500
@@ -35,9 +39,6 @@ export default function CheckoutPage() {
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.mpesaPhone) {
-      setFormData((prev) => ({ ...prev, mpesaPhone: prev.phone }))
-    }
     setStep("payment")
   }
 
@@ -45,6 +46,12 @@ export default function CheckoutPage() {
     e.preventDefault()
     setStep("confirmation")
     clearCart()
+  }
+
+  const copyOrderNumber = () => {
+    navigator.clipboard.writeText(orderNumber)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   const buildWhatsAppMessage = () => {
@@ -55,7 +62,12 @@ export default function CheckoutPage() {
       )
       .join("\n")
 
-    const message = `Hello 25FlowElectronics! I've placed an order.\n\nOrder #: ${orderNumber}\nName: ${formData.firstName} ${formData.lastName}\nPhone: ${formData.phone}\nDelivery: ${formData.address}, ${formData.city}\n\nItems:\n${itemLines}\n\nSubtotal: ${formatPrice(totalPrice)}\nDelivery: ${deliveryFee === 0 ? "Free" : formatPrice(deliveryFee)}\nTotal: ${formatPrice(grandTotal)}\n\nPayment: ${paymentMethod === "mpesa" ? "M-Pesa" : "Pay on Delivery"}`
+    const mpesaLine =
+      paymentMethod === "mpesa"
+        ? `\nM-Pesa Code: ${formData.mpesaCode}`
+        : ""
+
+    const message = `Hello Munex Electronics! I've placed an order.\n\nOrder #: ${orderNumber}\nName: ${formData.firstName} ${formData.lastName}\nPhone: ${formData.phone}\nDelivery: ${formData.address}, ${formData.city}\n\nItems:\n${itemLines}\n\nSubtotal: ${formatPrice(totalPrice)}\nDelivery: ${deliveryFee === 0 ? "Free" : formatPrice(deliveryFee)}\nTotal: ${formatPrice(grandTotal)}\n\nPayment: ${paymentMethod === "mpesa" ? "M-Pesa" : "Pay on Delivery"}${mpesaLine}`
 
     return encodeURIComponent(message)
   }
@@ -72,12 +84,12 @@ export default function CheckoutPage() {
           Order #{orderNumber}
         </p>
         <p className="mt-4 max-w-sm text-sm leading-relaxed text-muted-foreground">
-          Thank you for shopping with 25FlowElectronics. Please confirm your order on WhatsApp so
+          Thank you for shopping with Munex Electronics. Please confirm your order on WhatsApp so
           we can process your delivery right away.
         </p>
 
         <a
-          href={`https://wa.me/254793823013?text=${buildWhatsAppMessage()}`}
+          href={`https://wa.me/${WHATSAPP_NUMBER}?text=${buildWhatsAppMessage()}`}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-6 flex items-center gap-2 rounded-lg bg-[#25D366] px-6 py-3 text-sm font-semibold text-[#fff] transition-opacity hover:opacity-90"
@@ -103,11 +115,15 @@ export default function CheckoutPage() {
                 {paymentMethod === "mpesa" ? "M-Pesa" : "Pay on Delivery"}
               </span>
             </div>
+            {paymentMethod === "mpesa" && formData.mpesaCode && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">M-Pesa Code</span>
+                <span className="font-medium text-foreground">{formData.mpesaCode}</span>
+              </div>
+            )}
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Delivery to</span>
-              <span className="font-medium text-foreground">
-                {formData.city}
-              </span>
+              <span className="font-medium text-foreground">{formData.city}</span>
             </div>
             <div className="border-t border-border pt-2">
               <div className="flex justify-between">
@@ -252,7 +268,7 @@ export default function CheckoutPage() {
                       required
                       value={formData.phone}
                       onChange={handleChange}
-                      placeholder="+254 7XX XXX XXX"
+                      placeholder="07XX XXX XXX"
                       className="h-10 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     />
                   </div>
@@ -273,7 +289,7 @@ export default function CheckoutPage() {
                       required
                       value={formData.address}
                       onChange={handleChange}
-                      placeholder="e.g. Kilimani, Rose Avenue Apartments"
+                      placeholder="e.g. Narok Town, Main Street"
                       className="h-10 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     />
                   </div>
@@ -290,6 +306,7 @@ export default function CheckoutPage() {
                       className="h-10 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     >
                       <option value="">Select city</option>
+                      <option value="Narok">Narok</option>
                       <option value="Nairobi">Nairobi</option>
                       <option value="Mombasa">Mombasa</option>
                       <option value="Kisumu">Kisumu</option>
@@ -350,7 +367,7 @@ export default function CheckoutPage() {
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Pay instantly via M-Pesa. You will receive an STK push to confirm payment.
+                        Send M-Pesa to our number and enter your transaction code to confirm.
                       </p>
                     </div>
                   </label>
@@ -378,36 +395,109 @@ export default function CheckoutPage() {
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Pay cash or M-Pesa when your order arrives. Available in Nairobi only.
+                        Pay cash or M-Pesa when your order arrives.
                       </p>
                     </div>
                   </label>
                 </div>
               </div>
 
-              {/* M-Pesa Phone Number */}
+              {/* M-Pesa Payment Instructions */}
               {paymentMethod === "mpesa" && (
-                <div className="rounded-xl border border-border bg-card p-6">
-                  <h2 className="mb-4 text-base font-bold text-foreground">M-Pesa Details</h2>
+                <div className="rounded-xl border border-[#4CAF50]/30 bg-[#4CAF50]/5 p-6">
+                  <h2 className="mb-4 flex items-center gap-2 text-base font-bold text-foreground">
+                    <Phone className="h-5 w-5 text-[#4CAF50]" />
+                    M-Pesa Payment Instructions
+                  </h2>
+
+                  {/* Step-by-step */}
+                  <ol className="mb-5 flex flex-col gap-3">
+                    <li className="flex items-start gap-3 text-sm">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#4CAF50] text-xs font-bold text-white">
+                        1
+                      </span>
+                      <span className="text-muted-foreground">
+                        Go to <strong className="text-foreground">M-Pesa</strong> on your phone and select{" "}
+                        <strong className="text-foreground">Send Money</strong>
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-3 text-sm">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#4CAF50] text-xs font-bold text-white">
+                        2
+                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-muted-foreground">
+                          Send <strong className="text-foreground">{formatPrice(grandTotal)}</strong> to:
+                        </span>
+                        <div className="flex items-center gap-2 rounded-lg border border-[#4CAF50]/30 bg-background px-4 py-2">
+                          <Phone className="h-4 w-4 text-[#4CAF50]" />
+                          <span className="flex-1 font-mono text-base font-bold text-foreground">
+                            {MPESA_NUMBER}
+                          </span>
+                          <span className="text-xs text-muted-foreground">Munex Electronics</span>
+                        </div>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-3 text-sm">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#4CAF50] text-xs font-bold text-white">
+                        3
+                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-muted-foreground">
+                          Use your <strong className="text-foreground">Order Number</strong> as the reference:
+                        </span>
+                        <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2">
+                          <span className="flex-1 font-mono text-sm font-semibold text-foreground">
+                            {orderNumber}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={copyOrderNumber}
+                            className="flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                          >
+                            {copied ? (
+                              <Check className="h-3.5 w-3.5 text-[#4CAF50]" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
+                            {copied ? "Copied!" : "Copy"}
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-3 text-sm">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#4CAF50] text-xs font-bold text-white">
+                        4
+                      </span>
+                      <span className="text-muted-foreground">
+                        After payment, you will receive an{" "}
+                        <strong className="text-foreground">M-Pesa confirmation SMS</strong> with a
+                        transaction code. Enter it below.
+                      </span>
+                    </li>
+                  </ol>
+
+                  {/* Transaction Code Input */}
                   <div>
-                    <label htmlFor="mpesaPhone" className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                      M-Pesa Phone Number
+                    <label
+                      htmlFor="mpesaCode"
+                      className="mb-1.5 block text-xs font-medium text-muted-foreground"
+                    >
+                      M-Pesa Transaction Code{" "}
+                      <span className="text-foreground">(e.g. QHJ32ABC7)</span>
                     </label>
                     <input
-                      id="mpesaPhone"
-                      name="mpesaPhone"
-                      type="tel"
+                      id="mpesaCode"
+                      name="mpesaCode"
+                      type="text"
                       required
-                      value={formData.mpesaPhone || formData.phone}
+                      value={formData.mpesaCode}
                       onChange={handleChange}
-                      placeholder="+254 7XX XXX XXX"
-                      className="h-10 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      placeholder="Enter your M-Pesa transaction code"
+                      className="h-11 w-full rounded-lg border border-border bg-background px-3 font-mono text-sm text-foreground placeholder:font-sans placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     />
                     <p className="mt-2 text-xs text-muted-foreground">
-                      You will receive an M-Pesa prompt on this number to complete payment of{" "}
-                      <span className="font-semibold text-foreground">
-                        {formatPrice(grandTotal)}
-                      </span>
+                      The transaction code is in the SMS M-Pesa sends after every successful payment.
                     </p>
                   </div>
                 </div>
@@ -425,7 +515,7 @@ export default function CheckoutPage() {
                   type="submit"
                   className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 lg:flex-none lg:px-8"
                 >
-                  Place Order - {formatPrice(grandTotal)}
+                  Place Order — {formatPrice(grandTotal)}
                 </button>
               </div>
             </form>

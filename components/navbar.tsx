@@ -37,7 +37,7 @@ export function Navbar() {
             <Zap className="h-5 w-5 text-primary-foreground" />
           </div>
           <span className="text-lg font-bold tracking-tight text-foreground">
-            25Flow<span className="text-muted-foreground">Electronics</span>
+            Munex<span className="text-muted-foreground">Electronics</span>
           </span>
         </Link>
 

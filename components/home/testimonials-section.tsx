@@ -4,13 +4,13 @@ const testimonials = [
   {
     name: "James Ochieng",
     location: "Nairobi",
-    text: "Bought a Samsung TV from 25FlowElectronics and the delivery was incredibly fast. Great prices and authentic products!",
+    text: "Bought a Samsung TV from Munex Electronics and the delivery was incredibly fast. Great prices and authentic products!",
     rating: 5,
   },
   {
     name: "Wanjiku Mwangi",
     location: "Mombasa",
-    text: "Best place to shop for electronics in Kenya. Their customer service is top notch and prices are very competitive.",
+    text: "Best place to shop for electronics in Narok. Their customer service is top notch and prices are very competitive.",
     rating: 5,
   },
   {

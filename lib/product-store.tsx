@@ -38,8 +38,8 @@ const ProductStoreContext = createContext<ProductStoreContextType | undefined>(
   undefined
 )
 
-const PRODUCTS_KEY = "25flow_products"
-const CATEGORIES_KEY = "25flow_categories"
+const PRODUCTS_KEY = "munex_products"
+const CATEGORIES_KEY = "munex_categories"
 
 export function ProductStoreProvider({ children }: { children: ReactNode }) {
   const [products, setProducts] = useState<Product[]>(defaultProducts)

@@ -34,7 +34,7 @@ export default function AboutPage() {
       {/* Hero */}
       <div className="mx-auto mb-16 max-w-3xl text-center">
         <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
-          About 25FlowElectronics
+          About Munex Electronics
         </h1>
         <p className="mt-4 text-base leading-relaxed text-muted-foreground">
           We are Kenya&apos;s trusted electronics supplier, committed to bringing you the latest

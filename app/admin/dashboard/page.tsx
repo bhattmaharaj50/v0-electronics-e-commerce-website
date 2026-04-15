@@ -22,7 +22,7 @@ import { useProductStore } from "@/lib/product-store"
 import type { Product, Category } from "@/lib/product-store"
 import { formatPrice } from "@/lib/products"
 
-const AUTH_KEY = "25flow_admin_auth"
+const AUTH_KEY = "munex_admin_auth"
 
 const ICON_OPTIONS = [
   "Tv", "Speaker", "Refrigerator", "WashingMachine", "Flame",
@@ -225,7 +225,7 @@ export default function AdminDashboardPage() {
             </div>
             <div>
               <span className="text-base font-bold text-foreground">Admin Dashboard</span>
-              <span className="ml-2 hidden text-xs text-muted-foreground sm:inline">25FlowElectronics</span>
+              <span className="ml-2 hidden text-xs text-muted-foreground sm:inline">Munex Electronics</span>
             </div>
           </div>
           <div className="flex items-center gap-3">

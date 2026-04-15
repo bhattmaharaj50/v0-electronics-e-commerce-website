@@ -38,7 +38,7 @@ export default function ContactPage() {
           {/* Contact Cards */}
           <div className="grid gap-4 sm:grid-cols-2">
             <a
-              href="https://wa.me/254793823013"
+              href="https://wa.me/254720856892"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-start gap-4 rounded-xl border border-border bg-card p-5 transition-colors hover:border-muted-foreground/30"
@@ -53,7 +53,7 @@ export default function ContactPage() {
             </a>
 
             <a
-              href="tel:+254793823013"
+              href="tel:+254720856892"
               className="flex items-start gap-4 rounded-xl border border-border bg-card p-5 transition-colors hover:border-muted-foreground/30"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">
@@ -61,12 +61,12 @@ export default function ContactPage() {
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-foreground">Phone</h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">+254 793 823 013</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">0720 856 892</p>
               </div>
             </a>
 
             <a
-              href="mailto:info@25flowelectronics.co.ke"
+              href="mailto:info@munexelectronics.co.ke"
               className="flex items-start gap-4 rounded-xl border border-border bg-card p-5 transition-colors hover:border-muted-foreground/30"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">
@@ -74,7 +74,7 @@ export default function ContactPage() {
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-foreground">Email</h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">info@25flowelectronics.co.ke</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">info@munexelectronics.co.ke</p>
               </div>
             </a>
 
@@ -84,7 +84,7 @@ export default function ContactPage() {
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-foreground">Location</h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">Nairobi CBD, Kenya</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">Narok, Kenya</p>
               </div>
             </div>
           </div>
@@ -92,14 +92,14 @@ export default function ContactPage() {
           {/* Nairobi Map Embed */}
           <div className="overflow-hidden rounded-xl border border-border">
             <iframe
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15955.201944593675!2d36.81196503!3d-1.28333335!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x182f10d6448e5c97%3A0x311b16ee2c225bca!2sNairobi%20CBD%2C%20Nairobi!5e0!3m2!1sen!2ske!4v1700000000000!5m2!1sen!2ske"
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15952.123456789!2d35.8700!3d-1.0833!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x182990a0a0a0a0a1%3A0x0!2sNarok%2C%20Kenya!5e0!3m2!1sen!2ske!4v1700000000000!5m2!1sen!2ske"
               width="100%"
               height="300"
               style={{ border: 0, filter: "invert(90%) hue-rotate(180deg)" }}
               allowFullScreen
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
-              title="25FlowElectronics location in Nairobi"
+              title="Munex Electronics location in Narok"
             />
           </div>
         </div>
