@@ -113,6 +113,7 @@ export default function AdminDashboardPage() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [categoryForm, setCategoryForm] = useState<Category>({ slug: "", name: "", icon: "Package" })
   const [settingsForm, setSettingsForm] = useState<SiteSettings>(settings)
+  const [stockEdits, setStockEdits] = useState<Record<string, number>>({})
 
   useEffect(() => {
     try {
@@ -203,6 +204,14 @@ export default function AdminDashboardPage() {
     await deleteProduct(id)
     await refreshStore()
     showToast("Product deleted")
+  }
+
+  async function saveStockQuick(product: Product) {
+    const newStock = stockEdits[product.id]
+    if (newStock === undefined || newStock === (product.stock ?? 0)) return
+    await updateProduct({ ...product, stock: newStock })
+    setStockEdits((prev) => { const next = { ...prev }; delete next[product.id]; return next })
+    showToast(`Stock updated to ${newStock}`)
   }
 
   function openAddCategory() {
@@ -304,9 +313,17 @@ export default function AdminDashboardPage() {
               {lowStockProducts.map((product) => <p key={product.id} className="mb-2 rounded-lg bg-yellow-500/10 p-3 text-sm text-foreground">Low stock: {product.name} has {product.stock ?? 0} left</p>)}
             </div>
             <div className="rounded-xl border border-border bg-card p-5 md:col-span-2">
-              <h2 className="mb-3 font-bold text-foreground">Admin login credentials</h2>
-              <p className="text-sm text-muted-foreground">Username: <span className="font-mono text-foreground">admin</span></p>
-              <p className="text-sm text-muted-foreground">Password: <span className="font-mono text-foreground">munex2024</span></p>
+              <h2 className="mb-3 font-bold text-foreground">Recent Orders</h2>
+              {orders.length === 0 ? <p className="text-sm text-muted-foreground">No orders yet.</p> : orders.slice(0, 3).map((order) => (
+                <div key={order.orderNumber} className="mb-2 flex items-center justify-between rounded-lg bg-secondary p-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{order.orderNumber}</p>
+                    <p className="text-xs text-muted-foreground">{order.customer.firstName} {order.customer.lastName} · {formatPrice(order.total)}</p>
+                  </div>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${order.status === "new" ? "bg-red-600/20 text-red-500" : order.status === "delivered" ? "bg-green-600/20 text-green-500" : "bg-secondary text-muted-foreground"}`}>{order.status}</span>
+                </div>
+              ))}
+              {orders.length > 3 && <button onClick={() => setTab("orders")} className="mt-2 text-xs font-medium text-muted-foreground hover:text-foreground">View all {orders.length} orders →</button>}
             </div>
           </div>
         )}
@@ -330,7 +347,16 @@ export default function AdminDashboardPage() {
                         <td className="px-4 py-3"><div className="flex items-center gap-3"><img src={product.image} alt="" className="h-12 w-12 rounded-lg object-cover" /><div><p className="font-medium text-foreground line-clamp-1">{product.name}</p><p className="text-xs text-muted-foreground">{product.brand}</p></div></div></td>
                         <td className="px-4 py-3 text-muted-foreground">{categories.find((cat) => cat.slug === product.category)?.name || product.category}</td>
                         <td className="px-4 py-3 font-semibold text-foreground">{formatPrice(product.price)}</td>
-                        <td className={`px-4 py-3 font-semibold ${(product.stock ?? 0) <= 3 ? "text-red-500" : "text-foreground"}`}>{product.stock ?? 0}</td>
+                        <td className="px-4 py-3">
+                          <input
+                            type="number"
+                            min="0"
+                            value={stockEdits[product.id] !== undefined ? stockEdits[product.id] : (product.stock ?? 0)}
+                            onChange={(e) => setStockEdits((prev) => ({ ...prev, [product.id]: Number(e.target.value) }))}
+                            onBlur={() => saveStockQuick(product)}
+                            className={`h-8 w-20 rounded-md border border-border bg-secondary px-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-ring ${(product.stock ?? 0) <= 3 ? "text-red-500" : "text-foreground"}`}
+                          />
+                        </td>
                         <td className="px-4 py-3 text-muted-foreground">{OFFER_TYPES.find((offer) => offer.value === (product.offerType || ""))?.label || "No offer"}</td>
                         <td className="px-4 py-3"><div className="flex justify-end gap-2"><button onClick={() => openEditProduct(product)} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-secondary"><Pencil className="h-4 w-4" /></button><button onClick={() => removeProduct(product.id)} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></button></div></td>
                       </tr>

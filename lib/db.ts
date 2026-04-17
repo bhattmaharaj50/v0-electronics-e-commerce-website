@@ -47,8 +47,8 @@ const defaultSettings: SiteSettings = {
   flashSaleTitle: "Flash Sales",
   dealOfDayTitle: "Deal of the Day",
   holidayDealsTitle: "Holiday Deals",
-  adminPhone: "254720856892",
-  mpesaNumber: "0720856892",
+  adminPhone: "254793823013",
+  mpesaNumber: "0793823013",
 }
 
 const globalForDb = globalThis as unknown as { munexPool?: Pool; munexReady?: Promise<void> }

@@ -72,8 +72,8 @@ export function Footer() {
             <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
               <li>Narok, Kenya</li>
               <li>
-                <a href="tel:+254720856892" className="transition-colors hover:text-foreground">
-                  0720 856 892
+                <a href="tel:+254793823013" className="transition-colors hover:text-foreground">
+                  0793 823 013
                 </a>
               </li>
               <li>

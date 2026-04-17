@@ -58,8 +58,8 @@ export const defaultSettings: SiteSettings = {
   flashSaleTitle: "Flash Sales",
   dealOfDayTitle: "Deal of the Day",
   holidayDealsTitle: "Holiday Deals",
-  adminPhone: "254720856892",
-  mpesaNumber: "0720856892",
+  adminPhone: "254793823013",
+  mpesaNumber: "0793823013",
 }
 
 async function requestAdminAction(action: string, payload: Record<string, unknown>) {
