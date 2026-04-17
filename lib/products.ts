@@ -12,6 +12,8 @@ export interface Product {
   reviews: number
   badge?: string
   featured?: boolean
+  stock?: number
+  offerType?: "flash-sale" | "deal-of-day" | "holiday-deal" | ""
 }
 
 export const categories = [

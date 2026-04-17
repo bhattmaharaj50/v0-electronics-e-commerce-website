@@ -14,6 +14,7 @@ export default function ProductDetailClient({ id }: { id: string }) {
   const product = products.find((p) => p.id === id)
   const [quantity, setQuantity] = useState(1)
   const { addToCart } = useCart()
+  const outOfStock = (product?.stock ?? 1) <= 0
 
   if (!product) {
     return (
@@ -125,13 +126,15 @@ export default function ProductDetailClient({ id }: { id: string }) {
             <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary">
               <button
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                disabled={outOfStock}
                 className="p-2 hover:text-foreground"
               >
                 <Minus className="h-4 w-4" />
               </button>
               <span className="w-8 text-center font-medium">{quantity}</span>
               <button
-                onClick={() => setQuantity(quantity + 1)}
+                onClick={() => setQuantity(Math.min(product.stock ?? quantity + 1, quantity + 1))}
+                disabled={outOfStock || quantity >= (product.stock ?? quantity + 1)}
                 className="p-2 hover:text-foreground"
               >
                 <Plus className="h-4 w-4" />
@@ -142,10 +145,11 @@ export default function ProductDetailClient({ id }: { id: string }) {
           <div className="flex gap-3">
             <button
               onClick={handleAddToCart}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+              disabled={outOfStock}
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ShoppingCart className="h-5 w-5" />
-              Add to Cart
+              {outOfStock ? "Out of Stock" : "Add to Cart"}
             </button>
             <button className="flex items-center justify-center rounded-lg border border-border px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-secondary">
               <Heart className="h-5 w-5" />
@@ -175,6 +179,10 @@ export default function ProductDetailClient({ id }: { id: string }) {
               <li className="flex justify-between">
                 <span>Rating:</span>
                 <span className="text-foreground">{product.rating} / 5</span>
+              </li>
+              <li className="flex justify-between">
+                <span>Stock:</span>
+                <span className="text-foreground">{product.stock ?? 0} available</span>
               </li>
             </ul>
           </div>

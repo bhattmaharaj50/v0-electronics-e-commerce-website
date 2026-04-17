@@ -15,6 +15,7 @@ function stripHtml(html: string): string {
 export function ProductCard({ product }: { product: Product }) {
   const { addToCart } = useCart()
   const router = useRouter()
+  const outOfStock = (product.stock ?? 1) <= 0
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-all hover:border-muted-foreground/30">
@@ -83,22 +84,28 @@ export function ProductCard({ product }: { product: Product }) {
             </span>
           )}
         </div>
+        <p className={`text-xs font-medium ${outOfStock ? "text-red-500" : "text-muted-foreground"}`}>
+          {outOfStock ? "Out of stock" : `${product.stock ?? 0} in stock`}
+        </p>
 
         {/* Buttons */}
         <div className="mt-2 flex gap-2">
           <button
             onClick={() => addToCart(product)}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+            disabled={outOfStock}
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ShoppingCart className="h-3.5 w-3.5" />
             Add to Cart
           </button>
           <button
             onClick={() => {
+              if (outOfStock) return
               addToCart(product)
               router.push("/cart")
             }}
-            className="flex items-center justify-center rounded-lg border border-border px-3 py-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-secondary"
+            disabled={outOfStock}
+            className="flex items-center justify-center rounded-lg border border-border px-3 py-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
           >
             Buy Now
           </button>

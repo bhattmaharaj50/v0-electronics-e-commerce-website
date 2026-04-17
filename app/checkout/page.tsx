@@ -2,7 +2,8 @@
 
 import { useState } from "react"
 import { useCart } from "@/lib/cart-context"
-import { formatPrice } from "@/lib/products"
+import { formatPrice, type Product } from "@/lib/products"
+import { useProductStore } from "@/lib/product-store"
 import { CheckCircle2, ArrowLeft, Phone, MessageCircle, Copy, Check } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -10,15 +11,17 @@ import Image from "next/image"
 type PaymentMethod = "mpesa" | "pay-on-delivery"
 type CheckoutStep = "details" | "payment" | "confirmation"
 
-const MPESA_NUMBER = "0720856892"
-const WHATSAPP_NUMBER = "254720856892"
-
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart()
+  const { settings, refreshStore } = useProductStore()
   const [step, setStep] = useState<CheckoutStep>("details")
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("mpesa")
   const [orderNumber] = useState(() => `MNX-${Date.now().toString(36).toUpperCase()}`)
   const [copied, setCopied] = useState(false)
+  const [placing, setPlacing] = useState(false)
+  const [orderError, setOrderError] = useState("")
+  const [confirmedItems, setConfirmedItems] = useState<Array<{ product: Product; quantity: number }>>([])
+  const [confirmedTotals, setConfirmedTotals] = useState({ subtotal: 0, deliveryFee: 0, total: 0 })
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -42,10 +45,54 @@ export default function CheckoutPage() {
     setStep("payment")
   }
 
-  const handlePlaceOrder = (e: React.FormEvent) => {
+  const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault()
-    setStep("confirmation")
-    clearCart()
+    setPlacing(true)
+    setOrderError("")
+
+    try {
+      const orderItems = items.map((item) => ({ product: item.product, quantity: item.quantity }))
+      const totals = { subtotal: totalPrice, deliveryFee, total: grandTotal }
+      const whatsappUrl = `https://wa.me/${settings.adminPhone}?text=${buildWhatsAppMessage(orderItems, totals)}`
+
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderNumber,
+          customer: {
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            email: formData.email,
+            phone: formData.phone,
+            address: formData.address,
+            city: formData.city,
+          },
+          items: orderItems,
+          subtotal: totals.subtotal,
+          deliveryFee: totals.deliveryFee,
+          total: totals.total,
+          paymentMethod,
+          mpesaCode: paymentMethod === "mpesa" ? formData.mpesaCode : "",
+          whatsappUrl,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        throw new Error(error.error || "Unable to place order")
+      }
+
+      setConfirmedItems(orderItems)
+      setConfirmedTotals(totals)
+      setStep("confirmation")
+      clearCart()
+      await refreshStore()
+    } catch (error) {
+      setOrderError(error instanceof Error ? error.message : "Unable to place order")
+    } finally {
+      setPlacing(false)
+    }
   }
 
   const copyOrderNumber = () => {
@@ -54,8 +101,11 @@ export default function CheckoutPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const buildWhatsAppMessage = () => {
-    const itemLines = items
+  const buildWhatsAppMessage = (
+    orderItems = confirmedItems.length ? confirmedItems : items,
+    totals = confirmedTotals.total ? confirmedTotals : { subtotal: totalPrice, deliveryFee, total: grandTotal }
+  ) => {
+    const itemLines = orderItems
       .map(
         ({ product, quantity }) =>
           `- ${product.name} (x${quantity}) = ${formatPrice(product.price * quantity)}`
@@ -67,7 +117,7 @@ export default function CheckoutPage() {
         ? `\nM-Pesa Code: ${formData.mpesaCode}`
         : ""
 
-    const message = `Hello Munex Electronics! I've placed an order.\n\nOrder #: ${orderNumber}\nName: ${formData.firstName} ${formData.lastName}\nPhone: ${formData.phone}\nDelivery: ${formData.address}, ${formData.city}\n\nItems:\n${itemLines}\n\nSubtotal: ${formatPrice(totalPrice)}\nDelivery: ${deliveryFee === 0 ? "Free" : formatPrice(deliveryFee)}\nTotal: ${formatPrice(grandTotal)}\n\nPayment: ${paymentMethod === "mpesa" ? "M-Pesa" : "Pay on Delivery"}${mpesaLine}`
+    const message = `Hello Munex Electronics! I've placed an order.\n\nOrder #: ${orderNumber}\nName: ${formData.firstName} ${formData.lastName}\nPhone: ${formData.phone}\nDelivery: ${formData.address}, ${formData.city}\n\nItems:\n${itemLines}\n\nSubtotal: ${formatPrice(totals.subtotal)}\nDelivery: ${totals.deliveryFee === 0 ? "Free" : formatPrice(totals.deliveryFee)}\nTotal: ${formatPrice(totals.total)}\n\nPayment: ${paymentMethod === "mpesa" ? "M-Pesa" : "Pay on Delivery"}${mpesaLine}`
 
     return encodeURIComponent(message)
   }
@@ -89,7 +139,7 @@ export default function CheckoutPage() {
         </p>
 
         <a
-          href={`https://wa.me/${WHATSAPP_NUMBER}?text=${buildWhatsAppMessage()}`}
+          href={`https://wa.me/${settings.adminPhone}?text=${buildWhatsAppMessage()}`}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-6 flex items-center gap-2 rounded-lg bg-[#25D366] px-6 py-3 text-sm font-semibold text-[#fff] transition-opacity hover:opacity-90"
@@ -432,7 +482,7 @@ export default function CheckoutPage() {
                         <div className="flex items-center gap-2 rounded-lg border border-[#4CAF50]/30 bg-background px-4 py-2">
                           <Phone className="h-4 w-4 text-[#4CAF50]" />
                           <span className="flex-1 font-mono text-base font-bold text-foreground">
-                            {MPESA_NUMBER}
+                            {settings.mpesaNumber}
                           </span>
                           <span className="text-xs text-muted-foreground">Munex Electronics</span>
                         </div>
@@ -503,6 +553,12 @@ export default function CheckoutPage() {
                 </div>
               )}
 
+              {orderError && (
+                <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">
+                  {orderError}
+                </p>
+              )}
+
               <div className="flex gap-3">
                 <button
                   type="button"
@@ -513,9 +569,10 @@ export default function CheckoutPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 lg:flex-none lg:px-8"
+                  disabled={placing}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60 lg:flex-none lg:px-8"
                 >
-                  Place Order — {formatPrice(grandTotal)}
+                  {placing ? "Saving order..." : `Place Order — ${formatPrice(grandTotal)}`}
                 </button>
               </div>
             </form>

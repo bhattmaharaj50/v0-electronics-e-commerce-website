@@ -5,7 +5,6 @@ const replitDevOrigin = process.env.REPLIT_DEV_DOMAIN
 const replitDevHost = process.env.REPLIT_DEV_DOMAIN
 
 const nextConfig = {
-  output: 'export',
   typescript: {
     ignoreBuildErrors: true,
   },

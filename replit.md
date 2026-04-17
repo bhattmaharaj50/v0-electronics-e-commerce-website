@@ -4,13 +4,15 @@
 An e-commerce electronics store based in Narok, Kenya. Built with Next.js 16.2.4, React 19, Tailwind CSS 4, and shadcn/ui components. The site showcases electronics products with pages for browsing, product details, cart, checkout, about, and contact.
 
 ## Recent Changes
+- 2026-04-17: Added database-backed admin backend for products, categories, stock, homepage offer sections, website hero/contact settings, and order tracking. Checkout now saves orders server-side, reduces product stock, stores the WhatsApp confirmation URL, and creates admin portal alerts for new orders/low stock.
 - 2026-04-17: Migration to Replit environment — installed dependencies, updated Next.js to 16.2.4 to resolve dependency advisories, and updated dev origin handling to allow the current Replit preview domain dynamically.
 - 2026-04-15: Rebranded from 25FlowElectronics to Munex Electronics. Updated location to Narok, Kenya. Phone: 0720856892. Added M-Pesa payment instructions with transaction code verification in checkout. Orders directed to admin via WhatsApp (254720856892).
 - 2026-04-15: Major update — fixed all bugs, added cart persistence, product store, and full admin dashboard.
 - 2026-02-20: Initial Replit setup — configured Next.js dev server on port 5000, allowed dev origins for proxy, set up static deployment.
 
 ## Project Architecture
-- **Framework**: Next.js 16.2.4 (App Router) with static export (`output: 'export'`)
+- **Framework**: Next.js 16.2.4 (App Router) running in server mode for API routes
+- **Backend**: Next.js API routes with PostgreSQL persistence for admin/store data
 - **UI**: Tailwind CSS 4, shadcn/ui component library, Lucide icons
 - **Language**: TypeScript
 - **Structure**:
@@ -23,16 +25,17 @@ An e-commerce electronics store based in Narok, Kenya. Built with Next.js 16.2.4
 
 ## Key Libraries / Contexts
 - `lib/cart-context.tsx` — Cart state with localStorage persistence
-- `lib/product-store.tsx` — Product + category store with localStorage persistence (admin edits persist)
+- `lib/product-store.tsx` — Product + category + homepage settings store backed by API routes
+- `lib/db.ts` — PostgreSQL schema, seed data, product/category/settings/order helpers
 - `lib/products.ts` — Default product/category data (static)
 
 ## Admin Area
 - **URL**: `/admin`
 - **Username**: `admin`
-- **Password**: `25flow2024`
-- Features: Add/edit/delete products and categories, manage prices, sizes, badges, images, descriptions
+- **Password**: `munex2024`
+- Features: Add/edit/delete products and categories, manage prices, sizes, badges, images, descriptions, stock counts, offer placement, homepage text/contact settings, order status, and order alerts
 - Auth stored in `sessionStorage` (clears on browser close)
-- Data stored in `localStorage` under keys `25flow_products` and `25flow_categories`
+- Data stored in PostgreSQL through backend API routes
 
 ## Purchase Flow
 1. Browse products on `/products` or home page
@@ -40,6 +43,7 @@ An e-commerce electronics store based in Narok, Kenya. Built with Next.js 16.2.4
 3. View cart at `/cart` — update quantities, remove items
 4. Click "Proceed to Checkout" → fill contact + delivery details → select payment (M-Pesa or Pay on Delivery)
 5. "Place Order" → confirmation screen with WhatsApp order confirmation link
+6. Order is saved in `/admin/dashboard`, stock is reduced, and the WhatsApp confirmation URL is stored with the order
 
 ## Bug Fixes Applied
 - Fixed nested `<a>` hydration error in `ProductCard` (was `<Link>` wrapping another `<Link>`)
@@ -49,5 +53,5 @@ An e-commerce electronics store based in Narok, Kenya. Built with Next.js 16.2.4
 
 ## Development
 - Run: `npx next dev -H 0.0.0.0 -p 5000`
-- Build: `npm run build` (outputs to `out/` directory)
-- Deploy: Static site from `out/` directory
+- Build: `npm run build`
+- Deploy: Server-rendered Next.js app so backend API routes remain available

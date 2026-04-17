@@ -4,9 +4,9 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Zap, Eye, EyeOff, Lock } from "lucide-react"
 
+const AUTH_KEY = "munex_admin_auth"
 const ADMIN_USERNAME = "admin"
 const ADMIN_PASSWORD = "munex2024"
-const AUTH_KEY = "munex_admin_auth"
 
 export default function AdminLoginPage() {
   const router = useRouter()
@@ -21,35 +21,33 @@ export default function AdminLoginPage() {
       if (sessionStorage.getItem(AUTH_KEY) === "true") {
         router.replace("/admin/dashboard")
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
   }, [router])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError("")
 
-    setTimeout(() => {
-      if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-        try {
-          sessionStorage.setItem(AUTH_KEY, "true")
-        } catch {
-          // ignore
-        }
-        router.push("/admin/dashboard")
-      } else {
-        setError("Invalid username or password")
-        setLoading(false)
-      }
-    }, 600)
+    try {
+      const response = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      })
+
+      if (!response.ok) throw new Error("Invalid username or password")
+      sessionStorage.setItem(AUTH_KEY, "true")
+      router.push("/admin/dashboard")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Invalid username or password")
+      setLoading(false)
+    }
   }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="mb-8 flex flex-col items-center gap-3">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary">
             <Zap className="h-8 w-8 text-primary-foreground" />
@@ -60,7 +58,6 @@ export default function AdminLoginPage() {
           </div>
         </div>
 
-        {/* Card */}
         <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
           <div className="mb-6 flex items-center gap-2">
             <Lock className="h-4 w-4 text-muted-foreground" />
@@ -123,14 +120,13 @@ export default function AdminLoginPage() {
               {loading ? "Signing in..." : "Sign In"}
             </button>
           </form>
-        </div>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          Return to{" "}
-          <a href="/" className="font-medium text-foreground underline-offset-4 hover:underline">
-            store
-          </a>
-        </p>
+          <div className="mt-5 rounded-lg border border-border bg-secondary p-3 text-xs text-muted-foreground">
+            <p className="font-semibold text-foreground">Admin credentials</p>
+            <p>Username: {ADMIN_USERNAME}</p>
+            <p>Password: {ADMIN_PASSWORD}</p>
+          </div>
+        </div>
       </div>
     </div>
   )
