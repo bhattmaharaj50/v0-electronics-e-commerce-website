@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
-const ADMIN_USERNAME = "admin"
-const ADMIN_PASSWORD = "munex2024"
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin"
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "munex2024"
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}))

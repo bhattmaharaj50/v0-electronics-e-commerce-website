@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation"
 import { Zap, Eye, EyeOff, Lock } from "lucide-react"
 
 const AUTH_KEY = "munex_admin_auth"
-const ADMIN_USERNAME = "admin"
-const ADMIN_PASSWORD = "munex2024"
 
 export default function AdminLoginPage() {
   const router = useRouter()
@@ -121,11 +119,9 @@ export default function AdminLoginPage() {
             </button>
           </form>
 
-          <div className="mt-5 rounded-lg border border-border bg-secondary p-3 text-xs text-muted-foreground">
-            <p className="font-semibold text-foreground">Admin credentials</p>
-            <p>Username: {ADMIN_USERNAME}</p>
-            <p>Password: {ADMIN_PASSWORD}</p>
-          </div>
+          <p className="mt-5 text-center text-xs text-muted-foreground">
+            Contact your administrator if you need access.
+          </p>
         </div>
       </div>
     </div>

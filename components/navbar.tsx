@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { ShoppingCart, Search, Menu, X, Zap } from "lucide-react"
+import { ShoppingCart, Search, Menu, X, Zap, Lock } from "lucide-react"
 import { useCart } from "@/lib/cart-context"
 import { useRouter } from "next/navigation"
 
@@ -78,6 +78,14 @@ export function Navbar() {
             )}
             <span className="sr-only">Shopping cart</span>
           </Link>
+          <Link
+            href="/admin"
+            className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            title="Admin Portal"
+          >
+            <Lock className="h-3.5 w-3.5" />
+            Admin
+          </Link>
         </div>
 
         {/* Mobile: Cart + Hamburger */}
@@ -129,6 +137,14 @@ export function Navbar() {
                 {link.label}
               </Link>
             ))}
+            <Link
+              href="/admin"
+              onClick={() => setMobileMenuOpen(false)}
+              className="mt-1 flex items-center gap-2 rounded-lg border border-border px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <Lock className="h-4 w-4" />
+              Admin Portal
+            </Link>
           </div>
         </div>
       )}
