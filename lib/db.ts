@@ -78,6 +78,7 @@ function productFromRow(row: any): Product {
     brand: row.brand,
     size: row.size || undefined,
     image: row.image,
+    videoUrl: row.video_url || undefined,
     rating: toNumber(row.rating),
     reviews: Number(row.reviews || 0),
     badge: row.badge || undefined,
@@ -134,6 +135,7 @@ async function setupDatabase() {
       brand TEXT NOT NULL DEFAULT '',
       size TEXT,
       image TEXT NOT NULL DEFAULT '',
+      video_url TEXT,
       rating NUMERIC NOT NULL DEFAULT 4.5,
       reviews INTEGER NOT NULL DEFAULT 0,
       badge TEXT,
@@ -165,6 +167,10 @@ async function setupDatabase() {
     );
   `)
 
+  await pool.query(`
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS video_url TEXT;
+  `)
+
   const categoryCount = await pool.query("SELECT COUNT(*)::int AS count FROM categories")
   if (categoryCount.rows[0].count === 0) {
     for (const category of defaultCategories) {
@@ -186,9 +192,9 @@ async function setupDatabase() {
 
       await pool.query(
         `INSERT INTO products (
-          id, name, price, original_price, description, category, brand, size, image,
+          id, name, price, original_price, description, category, brand, size, image, video_url,
           rating, reviews, badge, featured, stock, offer_type, updated_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,NOW())
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,NOW())
         ON CONFLICT (id) DO NOTHING`,
         [
           seededProduct.id,
@@ -200,6 +206,7 @@ async function setupDatabase() {
           seededProduct.brand,
           seededProduct.size ?? null,
           seededProduct.image,
+          seededProduct.videoUrl ?? null,
           seededProduct.rating,
           seededProduct.reviews,
           seededProduct.badge ?? null,
@@ -250,9 +257,9 @@ export async function saveProduct(product: Product) {
   await ensureDatabase()
   await pool.query(
     `INSERT INTO products (
-      id, name, price, original_price, description, category, brand, size, image,
+      id, name, price, original_price, description, category, brand, size, image, video_url,
       rating, reviews, badge, featured, stock, offer_type, updated_at
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,NOW())
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,NOW())
     ON CONFLICT (id) DO UPDATE SET
       name = EXCLUDED.name,
       price = EXCLUDED.price,
@@ -262,6 +269,7 @@ export async function saveProduct(product: Product) {
       brand = EXCLUDED.brand,
       size = EXCLUDED.size,
       image = EXCLUDED.image,
+      video_url = EXCLUDED.video_url,
       rating = EXCLUDED.rating,
       reviews = EXCLUDED.reviews,
       badge = EXCLUDED.badge,
@@ -279,6 +287,7 @@ export async function saveProduct(product: Product) {
       product.brand,
       product.size ?? null,
       product.image,
+      product.videoUrl ?? null,
       product.rating,
       product.reviews,
       product.badge ?? null,

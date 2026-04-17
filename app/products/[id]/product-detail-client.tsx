@@ -2,12 +2,80 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { Star, ShoppingCart, Heart, Share2, ArrowLeft, Minus, Plus } from "lucide-react"
+import { Star, ShoppingCart, Heart, Share2, ArrowLeft, Minus, Plus, Play } from "lucide-react"
 import Link from "next/link"
 import { formatPrice } from "@/lib/products"
 import { useCart } from "@/lib/cart-context"
 import { useProductStore } from "@/lib/product-store"
 import { ProductCard } from "@/components/product-card"
+
+function getYouTubeId(url: string): string | null {
+  const regexps = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/\s]{11})/,
+  ]
+  for (const re of regexps) {
+    const match = url.match(re)
+    if (match) return match[1]
+  }
+  return null
+}
+
+function ProductVideo({ url }: { url: string }) {
+  const [playing, setPlaying] = useState(false)
+  const ytId = getYouTubeId(url)
+
+  if (ytId) {
+    return (
+      <div className="mt-6 overflow-hidden rounded-xl border border-border">
+        <div className="flex items-center gap-2 border-b border-border bg-secondary/50 px-4 py-2.5">
+          <Play className="h-4 w-4 text-foreground" />
+          <span className="text-sm font-semibold text-foreground">Product Video</span>
+        </div>
+        {playing ? (
+          <div className="relative aspect-video w-full">
+            <iframe
+              src={`https://www.youtube.com/embed/${ytId}?autoplay=1`}
+              title="Product video"
+              className="h-full w-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        ) : (
+          <button
+            onClick={() => setPlaying(true)}
+            className="group relative flex w-full items-center justify-center"
+            aria-label="Play video"
+          >
+            <img
+              src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
+              alt="Video thumbnail"
+              className="aspect-video w-full object-cover"
+            />
+            <div className="absolute flex h-16 w-16 items-center justify-center rounded-full bg-foreground/90 shadow-xl transition-transform group-hover:scale-110">
+              <Play className="h-7 w-7 fill-background text-background" />
+            </div>
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-6 overflow-hidden rounded-xl border border-border">
+      <div className="flex items-center gap-2 border-b border-border bg-secondary/50 px-4 py-2.5">
+        <Play className="h-4 w-4 text-foreground" />
+        <span className="text-sm font-semibold text-foreground">Product Video</span>
+      </div>
+      <video
+        src={url}
+        controls
+        className="w-full"
+        preload="metadata"
+      />
+    </div>
+  )
+}
 
 export default function ProductDetailClient({ id }: { id: string }) {
   const { products } = useProductStore()
@@ -52,7 +120,7 @@ export default function ProductDetailClient({ id }: { id: string }) {
       </Link>
 
       <div className="grid gap-8 lg:grid-cols-2">
-        <div className="flex items-center justify-center">
+        <div>
           <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-border bg-secondary">
             <Image
               src={product.image}
@@ -68,6 +136,8 @@ export default function ProductDetailClient({ id }: { id: string }) {
               </span>
             )}
           </div>
+
+          {product.videoUrl && <ProductVideo url={product.videoUrl} />}
         </div>
 
         <div className="flex flex-col gap-6">

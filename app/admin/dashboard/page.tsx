@@ -15,6 +15,8 @@ import {
   ShoppingBag,
   Tag,
   Trash2,
+  Upload,
+  Video,
   X,
   Zap,
 } from "lucide-react"
@@ -57,6 +59,7 @@ const emptyProduct: Product = {
   brand: "",
   size: "",
   image: "",
+  videoUrl: "",
   rating: 4.5,
   reviews: 0,
   badge: "",
@@ -114,6 +117,10 @@ export default function AdminDashboardPage() {
   const [categoryForm, setCategoryForm] = useState<Category>({ slug: "", name: "", icon: "Package" })
   const [settingsForm, setSettingsForm] = useState<SiteSettings>(settings)
   const [stockEdits, setStockEdits] = useState<Record<string, number>>({})
+  const [imageMode, setImageMode] = useState<"url" | "upload">("url")
+  const [videoMode, setVideoMode] = useState<"url" | "upload">("url")
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [uploadingVideo, setUploadingVideo] = useState(false)
 
   useEffect(() => {
     try {
@@ -165,12 +172,16 @@ export default function AdminDashboardPage() {
   function openAddProduct() {
     setEditingProduct(null)
     setProductForm({ ...emptyProduct, id: `prod-${Date.now()}` })
+    setImageMode("url")
+    setVideoMode("url")
     setProductFormOpen(true)
   }
 
   function openEditProduct(product: Product) {
     setEditingProduct(product)
     setProductForm({ ...emptyProduct, ...product })
+    setImageMode("url")
+    setVideoMode("url")
     setProductFormOpen(true)
   }
 
@@ -186,6 +197,7 @@ export default function AdminDashboardPage() {
       size: productForm.size || undefined,
       badge: productForm.badge || undefined,
       offerType: productForm.offerType || "",
+      videoUrl: productForm.videoUrl || undefined,
     }
     if (!product.id || !product.name || !product.category || !product.brand || !product.image) {
       showToast("Please fill all required product fields")
@@ -212,6 +224,28 @@ export default function AdminDashboardPage() {
     await updateProduct({ ...product, stock: newStock })
     setStockEdits((prev) => { const next = { ...prev }; delete next[product.id]; return next })
     showToast(`Stock updated to ${newStock}`)
+  }
+
+  async function handleFileUpload(
+    file: File,
+    type: "image" | "video",
+    onSuccess: (url: string) => void
+  ) {
+    const setter = type === "image" ? setUploadingImage : setUploadingVideo
+    setter(true)
+    try {
+      const fd = new FormData()
+      fd.append("file", file)
+      const res = await fetch("/api/upload", { method: "POST", body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Upload failed")
+      onSuccess(data.url)
+      showToast(`${type === "image" ? "Image" : "Video"} uploaded successfully`)
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Upload failed")
+    } finally {
+      setter(false)
+    }
   }
 
   function openAddCategory() {
@@ -443,7 +477,48 @@ export default function AdminDashboardPage() {
               <div><Label>Badge</Label><Input value={productForm.badge || ""} onChange={(e) => setProductForm({ ...productForm, badge: e.target.value })} /></div>
               <div><Label>Rating</Label><Input type="number" step="0.1" min="0" max="5" value={productForm.rating} onChange={(e) => setProductForm({ ...productForm, rating: Number(e.target.value) })} /></div>
               <div><Label>Reviews</Label><Input type="number" value={productForm.reviews} onChange={(e) => setProductForm({ ...productForm, reviews: Number(e.target.value) })} /></div>
-              <div className="md:col-span-2"><Label>Image URL *</Label><Input required value={productForm.image} onChange={(e) => setProductForm({ ...productForm, image: e.target.value })} /></div>
+              {/* Image — URL or file upload */}
+              <div className="md:col-span-2">
+                <div className="mb-2 flex items-center justify-between">
+                  <Label>Product Image *</Label>
+                  <div className="flex rounded-lg border border-border overflow-hidden text-xs">
+                    <button type="button" onClick={() => setImageMode("url")} className={`px-3 py-1 ${imageMode === "url" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"}`}>URL</button>
+                    <button type="button" onClick={() => setImageMode("upload")} className={`px-3 py-1 ${imageMode === "upload" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"}`}><Upload className="inline h-3 w-3 mr-1" />Upload</button>
+                  </div>
+                </div>
+                {imageMode === "url" ? (
+                  <Input required value={productForm.image} onChange={(e) => setProductForm({ ...productForm, image: e.target.value })} placeholder="https://..." />
+                ) : (
+                  <label className={`flex h-24 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-secondary text-sm text-muted-foreground transition-colors hover:border-primary ${uploadingImage ? "opacity-60 pointer-events-none" : ""}`}>
+                    <Upload className="h-5 w-5" />
+                    <span>{uploadingImage ? "Uploading…" : "Click to upload image (JPG, PNG, WebP)"}</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "image", (url) => { setProductForm((prev) => ({ ...prev, image: url })); setImageMode("url") }) }} />
+                  </label>
+                )}
+                {productForm.image && <img src={productForm.image} alt="preview" className="mt-2 h-20 rounded-lg object-cover border border-border" onError={(e) => (e.currentTarget.style.display = "none")} />}
+              </div>
+
+              {/* Video — URL (YouTube/direct) or file upload */}
+              <div className="md:col-span-2">
+                <div className="mb-2 flex items-center justify-between">
+                  <Label><Video className="inline h-3.5 w-3.5 mr-1" />Product Video (optional)</Label>
+                  <div className="flex rounded-lg border border-border overflow-hidden text-xs">
+                    <button type="button" onClick={() => setVideoMode("url")} className={`px-3 py-1 ${videoMode === "url" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"}`}>URL / YouTube</button>
+                    <button type="button" onClick={() => setVideoMode("upload")} className={`px-3 py-1 ${videoMode === "upload" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"}`}><Upload className="inline h-3 w-3 mr-1" />Upload</button>
+                  </div>
+                </div>
+                {videoMode === "url" ? (
+                  <Input value={productForm.videoUrl || ""} onChange={(e) => setProductForm({ ...productForm, videoUrl: e.target.value })} placeholder="https://youtube.com/watch?v=... or https://..." />
+                ) : (
+                  <label className={`flex h-24 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-secondary text-sm text-muted-foreground transition-colors hover:border-primary ${uploadingVideo ? "opacity-60 pointer-events-none" : ""}`}>
+                    <Video className="h-5 w-5" />
+                    <span>{uploadingVideo ? "Uploading…" : "Click to upload video (MP4, WebM)"}</span>
+                    <input type="file" accept="video/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "video", (url) => { setProductForm((prev) => ({ ...prev, videoUrl: url })); setVideoMode("url") }) }} />
+                  </label>
+                )}
+                {productForm.videoUrl && <p className="mt-1 truncate text-xs text-muted-foreground">{productForm.videoUrl}</p>}
+              </div>
+
               <div className="md:col-span-2"><Label>Description *</Label><textarea required value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} className="min-h-32 w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
               <div className="md:col-span-2 flex justify-end gap-3"><button type="button" onClick={() => setProductFormOpen(false)} className="rounded-lg border border-border px-5 py-2.5 text-sm">Cancel</button><button className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">Save Product</button></div>
             </form>
