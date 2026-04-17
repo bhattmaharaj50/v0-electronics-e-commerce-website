@@ -1,4 +1,9 @@
 /** @type {import('next').NextConfig} */
+const replitDevOrigin = process.env.REPLIT_DEV_DOMAIN
+  ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+  : undefined
+const replitDevHost = process.env.REPLIT_DEV_DOMAIN
+
 const nextConfig = {
   output: 'export',
   typescript: {
@@ -7,7 +12,12 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  allowedDevOrigins: ['*', 'janeway.replit.dev', '*.janeway.replit.dev', 'replit.dev', '*.replit.dev'],
+  allowedDevOrigins: [
+    'http://localhost:5000',
+    'http://0.0.0.0:5000',
+    replitDevHost,
+    replitDevOrigin,
+  ].filter(Boolean),
 }
 
 export default nextConfig

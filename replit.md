@@ -1,15 +1,16 @@
 # Munex Electronics
 
 ## Overview
-An e-commerce electronics store based in Narok, Kenya. Built with Next.js 16, React 19, Tailwind CSS 4, and shadcn/ui components. The site showcases electronics products with pages for browsing, product details, cart, checkout, about, and contact.
+An e-commerce electronics store based in Narok, Kenya. Built with Next.js 16.2.4, React 19, Tailwind CSS 4, and shadcn/ui components. The site showcases electronics products with pages for browsing, product details, cart, checkout, about, and contact.
 
 ## Recent Changes
+- 2026-04-17: Migration to Replit environment — installed dependencies, updated Next.js to 16.2.4 to resolve dependency advisories, and updated dev origin handling to allow the current Replit preview domain dynamically.
 - 2026-04-15: Rebranded from 25FlowElectronics to Munex Electronics. Updated location to Narok, Kenya. Phone: 0720856892. Added M-Pesa payment instructions with transaction code verification in checkout. Orders directed to admin via WhatsApp (254720856892).
 - 2026-04-15: Major update — fixed all bugs, added cart persistence, product store, and full admin dashboard.
 - 2026-02-20: Initial Replit setup — configured Next.js dev server on port 5000, allowed dev origins for proxy, set up static deployment.
 
 ## Project Architecture
-- **Framework**: Next.js 16 (App Router) with static export (`output: 'export'`)
+- **Framework**: Next.js 16.2.4 (App Router) with static export (`output: 'export'`)
 - **UI**: Tailwind CSS 4, shadcn/ui component library, Lucide icons
 - **Language**: TypeScript
 - **Structure**:
