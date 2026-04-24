@@ -692,17 +692,35 @@ export async function saveGeoCache(ip: string, geo: { country?: string | null; c
 
 export async function getTrafficAnalytics(): Promise<TrafficAnalytics> {
   await ensureDatabase()
+  // Exclude admin/api paths from analytics so they don't pollute numbers
+  const exclude = "path NOT LIKE '/admin%' AND path NOT LIKE '/api%'"
   const [totals, day, week, month, pages, countries, cities, referrers, recent, daily] = await Promise.all([
-    pool.query("SELECT COUNT(*)::int AS views, COUNT(DISTINCT session_id)::int AS visitors FROM page_views"),
-    pool.query("SELECT COUNT(*)::int AS views FROM page_views WHERE created_at > NOW() - INTERVAL '24 hours'"),
-    pool.query("SELECT COUNT(*)::int AS views FROM page_views WHERE created_at > NOW() - INTERVAL '7 days'"),
-    pool.query("SELECT COUNT(*)::int AS views FROM page_views WHERE created_at > NOW() - INTERVAL '30 days'"),
-    pool.query("SELECT path, COUNT(*)::int AS views FROM page_views WHERE created_at > NOW() - INTERVAL '30 days' GROUP BY path ORDER BY views DESC LIMIT 10"),
-    pool.query("SELECT COALESCE(country, 'Unknown') AS label, COUNT(*)::int AS views FROM page_views WHERE created_at > NOW() - INTERVAL '30 days' GROUP BY country ORDER BY views DESC LIMIT 10"),
-    pool.query("SELECT COALESCE(city, 'Unknown') AS label, COUNT(*)::int AS views FROM page_views WHERE created_at > NOW() - INTERVAL '30 days' GROUP BY city ORDER BY views DESC LIMIT 10"),
-    pool.query("SELECT COALESCE(referrer, 'Direct') AS label, COUNT(*)::int AS views FROM page_views WHERE created_at > NOW() - INTERVAL '30 days' GROUP BY referrer ORDER BY views DESC LIMIT 10"),
-    pool.query("SELECT path, country, city, referrer, user_agent, created_at FROM page_views ORDER BY created_at DESC LIMIT 25"),
-    pool.query("SELECT TO_CHAR(date_trunc('day', created_at), 'YYYY-MM-DD') AS day, COUNT(*)::int AS views FROM page_views WHERE created_at > NOW() - INTERVAL '14 days' GROUP BY day ORDER BY day ASC"),
+    pool.query(`SELECT COUNT(*)::int AS views, COUNT(DISTINCT session_id)::int AS visitors FROM page_views WHERE ${exclude}`),
+    pool.query(`SELECT COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '24 hours'`),
+    pool.query(`SELECT COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '7 days'`),
+    pool.query(`SELECT COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '30 days'`),
+    pool.query(`SELECT path, COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '30 days' GROUP BY path ORDER BY views DESC LIMIT 10`),
+    pool.query(`SELECT COALESCE(NULLIF(country, ''), 'Unknown') AS label, COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '30 days' GROUP BY label ORDER BY views DESC LIMIT 10`),
+    pool.query(`SELECT COALESCE(NULLIF(city, ''), 'Unknown') AS label, COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '30 days' GROUP BY label ORDER BY views DESC LIMIT 10`),
+    pool.query(`SELECT COALESCE(NULLIF(referrer, ''), 'Direct') AS label, COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '30 days' GROUP BY label ORDER BY views DESC LIMIT 10`),
+    pool.query(`SELECT path, country, city, referrer, user_agent, created_at FROM page_views WHERE ${exclude} ORDER BY created_at DESC LIMIT 25`),
+    pool.query(`
+      WITH days AS (
+        SELECT generate_series(
+          date_trunc('day', NOW() - INTERVAL '13 days'),
+          date_trunc('day', NOW()),
+          INTERVAL '1 day'
+        ) AS day
+      )
+      SELECT TO_CHAR(days.day, 'YYYY-MM-DD') AS day, COALESCE(COUNT(pv.id), 0)::int AS views
+      FROM days
+      LEFT JOIN page_views pv
+        ON date_trunc('day', pv.created_at) = days.day
+        AND pv.path NOT LIKE '/admin%'
+        AND pv.path NOT LIKE '/api%'
+      GROUP BY days.day
+      ORDER BY days.day ASC
+    `),
   ])
 
   return {

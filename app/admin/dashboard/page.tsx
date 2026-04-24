@@ -181,6 +181,9 @@ export default function AdminDashboardPage() {
   const [pickupInputs, setPickupInputs] = useState<Record<string, string>>({})
   const [editingReviewId, setEditingReviewId] = useState<number | null>(null)
   const [reviewEditForm, setReviewEditForm] = useState({ name: "", rating: 5, comment: "" })
+  const [reviewAddOpen, setReviewAddOpen] = useState(false)
+  const [reviewAddForm, setReviewAddForm] = useState({ productId: "", name: "", rating: 5, comment: "" })
+  const [savingReview, setSavingReview] = useState(false)
   const [offerProductPicker, setOfferProductPicker] = useState<Record<string, string>>({})
 
   useEffect(() => {
@@ -452,6 +455,36 @@ export default function AdminDashboardPage() {
     setEditingReviewId(null)
     await refreshStore()
     showToast("Review updated")
+  }
+
+  function openAddReview() {
+    setReviewAddForm({ productId: products[0]?.id || "", name: "", rating: 5, comment: "" })
+    setReviewAddOpen(true)
+  }
+
+  async function saveNewReview(e: React.FormEvent) {
+    e.preventDefault()
+    if (!reviewAddForm.productId || !reviewAddForm.name.trim() || !reviewAddForm.comment.trim()) {
+      showToast("Please choose a product and fill in name + comment")
+      return
+    }
+    setSavingReview(true)
+    try {
+      const data = await adminAction("addReview", {
+        productId: reviewAddForm.productId,
+        name: reviewAddForm.name.trim(),
+        rating: reviewAddForm.rating,
+        comment: reviewAddForm.comment.trim(),
+      })
+      setAllReviews(data.allReviews || [])
+      setReviewAddOpen(false)
+      await refreshStore()
+      showToast("Review added")
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Unable to add review")
+    } finally {
+      setSavingReview(false)
+    }
   }
 
   async function attachProductToOffer(offerValue: string) {
@@ -759,7 +792,19 @@ export default function AdminDashboardPage() {
 
         {tab === "reviews" && (
           <div className="grid gap-3">
-            {allReviews.length === 0 ? <p className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">No reviews yet.</p> : allReviews.map((review) => {
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-foreground">Customer Reviews</h2>
+                <p className="text-xs text-muted-foreground">{allReviews.length} review{allReviews.length === 1 ? "" : "s"} total</p>
+              </div>
+              <button
+                onClick={openAddReview}
+                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
+              >
+                <Plus className="h-4 w-4" /> Add Review
+              </button>
+            </div>
+            {allReviews.length === 0 ? <p className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">No reviews yet. Click "Add Review" to create one.</p> : allReviews.map((review) => {
               const product = products.find((p) => p.id === review.productId)
               const isEditing = editingReviewId === review.id
               return (
@@ -999,6 +1044,67 @@ export default function AdminDashboardPage() {
           </form>
         )}
       </div>
+
+      {reviewAddOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+          <form onSubmit={saveNewReview} className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-foreground">Add Review</h2>
+              <button type="button" onClick={() => setReviewAddOpen(false)}><X className="h-5 w-5" /></button>
+            </div>
+            <div className="mb-3">
+              <Label>Product *</Label>
+              <select
+                required
+                value={reviewAddForm.productId}
+                onChange={(e) => setReviewAddForm({ ...reviewAddForm, productId: e.target.value })}
+                className="h-10 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">Select product</option>
+                {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <div className="mb-3">
+              <Label>Reviewer name *</Label>
+              <Input required value={reviewAddForm.name} onChange={(e) => setReviewAddForm({ ...reviewAddForm, name: e.target.value })} placeholder="e.g. James K" />
+            </div>
+            <div className="mb-3">
+              <Label>Rating</Label>
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setReviewAddForm({ ...reviewAddForm, rating: value })}
+                    aria-label={`Rate ${value} stars`}
+                    className="p-1"
+                  >
+                    <Star className={`h-6 w-6 ${value <= reviewAddForm.rating ? "fill-yellow-500 text-yellow-500" : "text-muted-foreground"}`} />
+                  </button>
+                ))}
+                <span className="ml-2 text-sm text-muted-foreground">{reviewAddForm.rating}/5</span>
+              </div>
+            </div>
+            <div className="mb-5">
+              <Label>Comment *</Label>
+              <textarea
+                required
+                value={reviewAddForm.comment}
+                onChange={(e) => setReviewAddForm({ ...reviewAddForm, comment: e.target.value })}
+                rows={4}
+                placeholder="What did the customer say about this product?"
+                className="min-h-24 w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <button type="button" onClick={() => setReviewAddOpen(false)} className="rounded-lg border border-border px-5 py-2.5 text-sm">Cancel</button>
+              <button type="submit" disabled={savingReview} className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">
+                {savingReview ? "Saving…" : "Save Review"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {productFormOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-background/80 p-4 backdrop-blur-sm">

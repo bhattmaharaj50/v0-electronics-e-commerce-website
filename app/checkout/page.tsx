@@ -49,12 +49,14 @@ export default function CheckoutPage() {
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    let cleanMpesaCode = ""
     if (paymentMethod === "mpesa") {
-      const code = (formData.mpesaCode || "").trim().toUpperCase()
-      if (!/^[A-Z0-9]{8,12}$/.test(code)) {
-        setOrderError("Please enter a valid M-Pesa transaction code (8-12 letters/numbers from your SMS).")
+      cleanMpesaCode = (formData.mpesaCode || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "")
+      if (cleanMpesaCode.length < 8 || cleanMpesaCode.length > 12) {
+        setOrderError("Please enter your M-Pesa transaction code (8-12 letters/numbers from your SMS, e.g. QHJ32ABC7K).")
         return
       }
+      setFormData((prev) => ({ ...prev, mpesaCode: cleanMpesaCode }))
     }
 
     setPlacing(true)
@@ -83,7 +85,7 @@ export default function CheckoutPage() {
           deliveryFee: totals.deliveryFee,
           total: totals.total,
           paymentMethod,
-          mpesaCode: paymentMethod === "mpesa" ? formData.mpesaCode.trim().toUpperCase() : "",
+          mpesaCode: paymentMethod === "mpesa" ? cleanMpesaCode : "",
           whatsappUrl,
         }),
       })
@@ -200,7 +202,7 @@ export default function CheckoutPage() {
   }
 
   // ---- EMPTY CART ----
-  if (items.length === 0 && step !== "confirmation") {
+  if (items.length === 0) {
     return (
       <div className="mx-auto flex max-w-lg flex-col items-center px-4 py-24 text-center">
         <h1 className="text-2xl font-bold text-foreground">Your cart is empty</h1>
@@ -551,11 +553,18 @@ export default function CheckoutPage() {
                       name="mpesaCode"
                       type="text"
                       required
+                      autoComplete="off"
+                      autoCapitalize="characters"
+                      inputMode="text"
                       value={formData.mpesaCode}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, mpesaCode: e.target.value.toUpperCase().replace(/\s+/g, "").slice(0, 12) }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          mpesaCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12),
+                        }))
+                      }
                       placeholder="e.g. QHJ32ABC7K"
                       maxLength={12}
-                      pattern="[A-Za-z0-9]{8,12}"
                       title="8-12 letters and numbers from your M-Pesa SMS"
                       className="h-11 w-full rounded-lg border border-border bg-background px-3 font-mono text-sm tracking-widest text-foreground placeholder:font-sans placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     />
