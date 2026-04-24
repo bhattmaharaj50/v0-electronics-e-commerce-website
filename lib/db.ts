@@ -536,8 +536,7 @@ export async function updateOrderStatus(orderNumber: string, status: string) {
 
 export async function deleteOrder(orderNumber: string) {
   await ensureDatabase()
-  const result = await pool.query("DELETE FROM orders WHERE order_number = $1", [orderNumber])
-  if (!result.rowCount) throw new Error("Order not found")
+  await pool.query("DELETE FROM orders WHERE order_number = $1", [orderNumber])
 }
 
 export async function markOrderPaid(orderNumber: string) {
@@ -598,7 +597,7 @@ export async function listProductReviews(productId: string) {
 export async function deleteReview(id: number) {
   await ensureDatabase()
   const target = await pool.query("SELECT product_id FROM product_reviews WHERE id = $1", [id])
-  if (!target.rowCount) throw new Error("Review not found")
+  if (!target.rowCount) return
   await pool.query("DELETE FROM product_reviews WHERE id = $1", [id])
   await refreshProductRating(target.rows[0].product_id)
 }
