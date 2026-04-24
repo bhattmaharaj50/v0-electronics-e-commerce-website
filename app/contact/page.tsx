@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Phone, Mail, MapPin, MessageCircle, Send, CheckCircle2 } from "lucide-react"
+import { Phone, Mail, MapPin, MessageCircle, Send, CheckCircle2, Instagram, Twitter } from "lucide-react"
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false)
@@ -38,7 +38,7 @@ export default function ContactPage() {
           {/* Contact Cards */}
           <div className="grid gap-4 sm:grid-cols-2">
             <a
-              href="https://wa.me/254793823013"
+              href="https://wa.me/254720856892"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-start gap-4 rounded-xl border border-border bg-card p-5 transition-colors hover:border-muted-foreground/30"
@@ -53,7 +53,7 @@ export default function ContactPage() {
             </a>
 
             <a
-              href="tel:+254793823013"
+              href="tel:+254720856892"
               className="flex items-start gap-4 rounded-xl border border-border bg-card p-5 transition-colors hover:border-muted-foreground/30"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">
@@ -61,12 +61,12 @@ export default function ContactPage() {
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-foreground">Phone</h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">0793 823 013</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">0720 856 892</p>
               </div>
             </a>
 
             <a
-              href="mailto:info@munexelectronics.co.ke"
+              href="mailto:munexelectronics@gmail.com"
               className="flex items-start gap-4 rounded-xl border border-border bg-card p-5 transition-colors hover:border-muted-foreground/30"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">
@@ -74,32 +74,75 @@ export default function ContactPage() {
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-foreground">Email</h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">info@munexelectronics.co.ke</p>
+                <p className="mt-0.5 break-all text-xs text-muted-foreground">munexelectronics@gmail.com</p>
               </div>
             </a>
 
+            <a
+              href="https://instagram.com/munexelectronics"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-start gap-4 rounded-xl border border-border bg-card p-5 transition-colors hover:border-muted-foreground/30"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">
+                <Instagram className="h-5 w-5 text-foreground" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Instagram</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">@munexelectronics</p>
+              </div>
+            </a>
+
+            <a
+              href="https://twitter.com/munexelectronics"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-start gap-4 rounded-xl border border-border bg-card p-5 transition-colors hover:border-muted-foreground/30"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">
+                <Twitter className="h-5 w-5 text-foreground" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Twitter / X</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">@munexelectronics</p>
+              </div>
+            </a>
+          </div>
+
+          {/* Shop Locations */}
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="flex items-start gap-4 rounded-xl border border-border bg-card p-5">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">
                 <MapPin className="h-5 w-5 text-foreground" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-foreground">Location</h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">Narok, Kenya</p>
+                <h3 className="text-sm font-semibold text-foreground">Nairobi Shop</h3>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">Electronics House, Luthuli Street, Shop G7</p>
+                <p className="mt-1 text-xs font-medium text-[#25D366]">Free delivery within Nairobi</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-4 rounded-xl border border-border bg-card p-5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">
+                <MapPin className="h-5 w-5 text-foreground" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Narok Shop</h3>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">Mosque Road, Narok Town</p>
               </div>
             </div>
           </div>
 
-          {/* Nairobi Map Embed */}
+          {/* Map Embed */}
           <div className="overflow-hidden rounded-xl border border-border">
             <iframe
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15952.123456789!2d35.8700!3d-1.0833!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x182990a0a0a0a0a1%3A0x0!2sNarok%2C%20Kenya!5e0!3m2!1sen!2ske!4v1700000000000!5m2!1sen!2ske"
+              src="https://www.google.com/maps?q=Luthuli+Avenue+Nairobi&output=embed"
               width="100%"
-              height="300"
+              height="280"
               style={{ border: 0, filter: "invert(90%) hue-rotate(180deg)" }}
               allowFullScreen
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
-              title="Munex Electronics location in Narok"
+              title="Munex Electronics — Luthuli Street, Nairobi"
             />
           </div>
         </div>

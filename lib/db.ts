@@ -108,7 +108,7 @@ const defaultSettings: SiteSettings = {
   heroAdVideoUrl: "",
   heroAdTitle: "See What's New",
   heroAdSubtitle: "Watch our latest product showcase",
-  pickupLocation: "Munex Electronics Shop, Narok Town, Main Street",
+  pickupLocation: "Nairobi: Electronics House, Luthuli Street, Shop G7  •  Narok: Mosque Road",
   businessName: "Munex Electronics",
 }
 
@@ -595,6 +595,33 @@ export async function deleteReview(id: number) {
   if (!target.rowCount) throw new Error("Review not found")
   await pool.query("DELETE FROM product_reviews WHERE id = $1", [id])
   await refreshProductRating(target.rows[0].product_id)
+}
+
+export async function updateReview(payload: { id: number; name?: string; rating?: number; comment?: string }) {
+  await ensureDatabase()
+  const fields: string[] = []
+  const values: unknown[] = []
+  let i = 1
+  if (payload.name !== undefined) {
+    fields.push(`name = $${i++}`)
+    values.push(payload.name.trim().slice(0, 80))
+  }
+  if (payload.rating !== undefined) {
+    fields.push(`rating = $${i++}`)
+    values.push(Math.max(1, Math.min(5, Math.round(payload.rating))))
+  }
+  if (payload.comment !== undefined) {
+    fields.push(`comment = $${i++}`)
+    values.push(payload.comment.trim().slice(0, 1000))
+  }
+  if (fields.length === 0) return
+  values.push(payload.id)
+  const result = await pool.query(
+    `UPDATE product_reviews SET ${fields.join(", ")} WHERE id = $${i} RETURNING product_id`,
+    values
+  )
+  if (!result.rowCount) throw new Error("Review not found")
+  await refreshProductRating(result.rows[0].product_id)
 }
 
 async function refreshProductRating(productId: string) {

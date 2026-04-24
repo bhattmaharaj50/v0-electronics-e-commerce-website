@@ -10,9 +10,9 @@ const values = [
   },
   {
     icon: Truck,
-    title: "Fast Delivery",
+    title: "Free Nairobi Delivery",
     description:
-      "Same-day delivery in Nairobi, and swift nationwide shipping to get your products to you quickly and safely.",
+      "Free same-day delivery anywhere within Nairobi, plus affordable nationwide shipping (KSh 500) across Kenya.",
   },
   {
     icon: HeadphonesIcon,

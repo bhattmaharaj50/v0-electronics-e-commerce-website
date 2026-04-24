@@ -105,16 +105,17 @@ export default function CartPage() {
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Delivery</span>
                 <span className="font-medium text-foreground">
-                  {totalPrice > 10000 ? "Free" : formatPrice(500)}
+                  Free in Nairobi · KSh 500 elsewhere
                 </span>
               </div>
               <div className="border-t border-border pt-3">
                 <div className="flex justify-between">
-                  <span className="text-base font-bold text-foreground">Total</span>
+                  <span className="text-base font-bold text-foreground">Subtotal</span>
                   <span className="text-base font-bold text-foreground">
-                    {formatPrice(totalPrice > 10000 ? totalPrice : totalPrice + 500)}
+                    {formatPrice(totalPrice)}
                   </span>
                 </div>
+                <p className="mt-1 text-xs text-muted-foreground">Delivery is added at checkout based on your city.</p>
               </div>
             </div>
 
@@ -133,11 +134,9 @@ export default function CartPage() {
               Continue Shopping
             </Link>
 
-            {totalPrice < 10000 && (
-              <p className="mt-3 text-center text-xs text-muted-foreground">
-                Add {formatPrice(10000 - totalPrice)} more for free delivery
-              </p>
-            )}
+            <p className="mt-3 text-center text-xs text-muted-foreground">
+              Free delivery within Nairobi · KSh 500 nationwide
+            </p>
           </div>
         </div>
       </div>

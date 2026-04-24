@@ -74,7 +74,7 @@ export const defaultSettings: SiteSettings = {
   heroAdVideoUrl: "",
   heroAdTitle: "See What's New",
   heroAdSubtitle: "Watch our latest product showcase",
-  pickupLocation: "Munex Electronics Shop, Narok Town, Main Street",
+  pickupLocation: "Nairobi: Electronics House, Luthuli Street, Shop G7  •  Narok: Mosque Road",
   businessName: "Munex Electronics",
 }
 

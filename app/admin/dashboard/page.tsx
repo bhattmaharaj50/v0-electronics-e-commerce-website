@@ -179,6 +179,9 @@ export default function AdminDashboardPage() {
   const [uploadingHeroVideo, setUploadingHeroVideo] = useState(false)
   const [extraImageUrl, setExtraImageUrl] = useState("")
   const [pickupInputs, setPickupInputs] = useState<Record<string, string>>({})
+  const [editingReviewId, setEditingReviewId] = useState<number | null>(null)
+  const [reviewEditForm, setReviewEditForm] = useState({ name: "", rating: 5, comment: "" })
+  const [offerProductPicker, setOfferProductPicker] = useState<Record<string, string>>({})
 
   useEffect(() => {
     try {
@@ -432,6 +435,46 @@ export default function AdminDashboardPage() {
     showToast("Review deleted")
   }
 
+  function openEditReview(review: ReviewItem) {
+    setEditingReviewId(review.id)
+    setReviewEditForm({ name: review.name, rating: review.rating, comment: review.comment })
+  }
+
+  async function saveReviewEdit() {
+    if (editingReviewId === null) return
+    const data = await adminAction("updateReview", {
+      id: editingReviewId,
+      name: reviewEditForm.name,
+      rating: reviewEditForm.rating,
+      comment: reviewEditForm.comment,
+    })
+    setAllReviews(data.allReviews || [])
+    setEditingReviewId(null)
+    await refreshStore()
+    showToast("Review updated")
+  }
+
+  async function attachProductToOffer(offerValue: string) {
+    const productId = offerProductPicker[offerValue]
+    if (!productId) {
+      showToast("Choose a product first")
+      return
+    }
+    const product = products.find((p) => p.id === productId)
+    if (!product) return
+    await updateProduct({ ...product, offerType: offerValue as Product["offerType"] })
+    setOfferProductPicker((prev) => ({ ...prev, [offerValue]: "" }))
+    await refreshStore()
+    showToast(`Added "${product.name}" to ${OFFER_TYPES.find((o) => o.value === offerValue)?.label}`)
+  }
+
+  async function removeProductFromOffer(product: Product) {
+    if (!confirm(`Remove "${product.name}" from this offer?`)) return
+    await updateProduct({ ...product, offerType: "" })
+    await refreshStore()
+    showToast("Removed from offer")
+  }
+
   async function uploadHomepageAsset(file: File, kind: "logo" | "heroImage" | "heroVideo") {
     const setter = kind === "logo" ? setUploadingLogo : kind === "heroImage" ? setUploadingHeroImage : setUploadingHeroVideo
     setter(true)
@@ -662,13 +705,55 @@ export default function AdminDashboardPage() {
 
         {tab === "offers" && (
           <div className="grid gap-4 lg:grid-cols-3">
-            {OFFER_TYPES.filter((offer) => offer.value).map((offer) => (
-              <div key={offer.value} className="rounded-xl border border-border bg-card p-5">
-                <h3 className="font-bold text-foreground">{offer.label}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Edit a product and choose this offer type to show it on the home page.</p>
-                <div className="mt-4 space-y-2">{products.filter((product) => product.offerType === offer.value).map((product) => <button key={product.id} onClick={() => openEditProduct(product)} className="block w-full rounded-lg bg-secondary p-3 text-left text-sm text-foreground">{product.name}</button>)}</div>
-              </div>
-            ))}
+            {OFFER_TYPES.filter((offer) => offer.value).map((offer) => {
+              const inOffer = products.filter((p) => p.offerType === offer.value)
+              const available = products.filter((p) => p.offerType !== offer.value)
+              const pickerValue = offerProductPicker[offer.value] || ""
+              return (
+                <div key={offer.value} className="rounded-xl border border-border bg-card p-5">
+                  <h3 className="font-bold text-foreground">{offer.label}</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">{inOffer.length} product{inOffer.length === 1 ? "" : "s"} in this slot</p>
+
+                  <div className="mt-4 flex gap-2">
+                    <select
+                      value={pickerValue}
+                      onChange={(e) => setOfferProductPicker((prev) => ({ ...prev, [offer.value]: e.target.value }))}
+                      className="h-9 flex-1 rounded-lg border border-border bg-secondary px-2 text-xs text-foreground"
+                    >
+                      <option value="">+ Add product…</option>
+                      {available.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                    <button
+                      onClick={() => attachProductToOffer(offer.value)}
+                      disabled={!pickerValue}
+                      className="rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                    >
+                      Add
+                    </button>
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    {inOffer.length === 0 ? (
+                      <p className="rounded-lg border border-dashed border-border p-3 text-center text-xs text-muted-foreground">No products yet</p>
+                    ) : inOffer.map((product) => (
+                      <div key={product.id} className="flex items-center gap-2 rounded-lg bg-secondary p-2">
+                        {product.image && <img src={product.image} alt="" className="h-10 w-10 rounded object-cover" />}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-foreground">{product.name}</p>
+                          <p className="text-xs text-muted-foreground">{formatPrice(product.price)}</p>
+                        </div>
+                        <button onClick={() => openEditProduct(product)} title="Edit product" className="rounded-lg border border-border p-1.5 text-muted-foreground hover:text-foreground">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => removeProductFromOffer(product)} title="Remove from offer" className="rounded-lg border border-border p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
 
@@ -676,25 +761,65 @@ export default function AdminDashboardPage() {
           <div className="grid gap-3">
             {allReviews.length === 0 ? <p className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">No reviews yet.</p> : allReviews.map((review) => {
               const product = products.find((p) => p.id === review.productId)
+              const isEditing = editingReviewId === review.id
               return (
                 <div key={review.id} className="rounded-xl border border-border bg-card p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-foreground">{review.name}</p>
-                      <p className="text-xs text-muted-foreground">{product?.name || review.productId} · {new Date(review.createdAt).toLocaleString()}</p>
+                    <div className="min-w-0 flex-1">
+                      {isEditing ? (
+                        <Input value={reviewEditForm.name} onChange={(e) => setReviewEditForm({ ...reviewEditForm, name: e.target.value })} placeholder="Reviewer name" />
+                      ) : (
+                        <p className="font-semibold text-foreground">{review.name}</p>
+                      )}
+                      <p className="mt-1 text-xs text-muted-foreground">{product?.name || review.productId} · {new Date(review.createdAt).toLocaleString()}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-0.5">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star key={i} className={`h-4 w-4 ${i < review.rating ? "fill-yellow-500 text-yellow-500" : "text-muted-foreground"}`} />
-                        ))}
-                      </div>
-                      <button onClick={() => deleteReview(review.id)} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {isEditing ? (
+                        <select
+                          value={reviewEditForm.rating}
+                          onChange={(e) => setReviewEditForm({ ...reviewEditForm, rating: Number(e.target.value) })}
+                          className="h-9 rounded-lg border border-border bg-secondary px-2 text-sm text-foreground"
+                        >
+                          {[1, 2, 3, 4, 5].map((r) => <option key={r} value={r}>{r} ★</option>)}
+                        </select>
+                      ) : (
+                        <div className="flex items-center gap-0.5">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star key={i} className={`h-4 w-4 ${i < review.rating ? "fill-yellow-500 text-yellow-500" : "text-muted-foreground"}`} />
+                          ))}
+                        </div>
+                      )}
+                      {isEditing ? (
+                        <>
+                          <button onClick={saveReviewEdit} className="rounded-lg bg-primary p-2 text-primary-foreground" title="Save">
+                            <Check className="h-4 w-4" />
+                          </button>
+                          <button onClick={() => setEditingReviewId(null)} className="rounded-lg border border-border p-2 text-muted-foreground hover:text-foreground" title="Cancel">
+                            <X className="h-4 w-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => openEditReview(review)} className="rounded-lg border border-border p-2 text-muted-foreground hover:text-foreground" title="Edit review">
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button onClick={() => deleteReview(review.id)} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" title="Delete review">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
-                  <p className="mt-2 text-sm text-foreground">{review.comment}</p>
+                  {isEditing ? (
+                    <textarea
+                      value={reviewEditForm.comment}
+                      onChange={(e) => setReviewEditForm({ ...reviewEditForm, comment: e.target.value })}
+                      rows={3}
+                      className="mt-3 w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                  ) : (
+                    <p className="mt-2 text-sm text-foreground">{review.comment}</p>
+                  )}
                 </div>
               )
             })}

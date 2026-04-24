@@ -4,6 +4,7 @@ import {
   deleteOrder,
   deleteProduct,
   deleteReview,
+  updateReview,
   getAdminData,
   markOrderDispatched,
   markOrderPaid,
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
     else if (body.action === "markOrderReady") await markOrderReady(body.orderNumber, body.pickupLocation || "")
     else if (body.action === "markOrderDispatched") await markOrderDispatched(body.orderNumber, body.customerWhatsappUrl || "")
     else if (body.action === "deleteReview") await deleteReview(Number(body.id))
+    else if (body.action === "updateReview") await updateReview({ id: Number(body.id), name: body.name, rating: body.rating !== undefined ? Number(body.rating) : undefined, comment: body.comment })
     else return NextResponse.json({ error: "Unknown admin action" }, { status: 400 })
 
     return NextResponse.json(await getAdminData())

@@ -70,33 +70,55 @@ export function Footer() {
               Contact Us
             </h3>
             <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
-              <li>Narok, Kenya</li>
+              <li className="leading-relaxed">
+                <span className="font-medium text-foreground">Nairobi:</span> Electronics House, Luthuli Street, Shop G7
+              </li>
+              <li className="leading-relaxed">
+                <span className="font-medium text-foreground">Narok:</span> Mosque Road
+              </li>
               <li>
-                <a href="tel:+254793823013" className="transition-colors hover:text-foreground">
-                  0793 823 013
+                <a href="tel:+254720856892" className="transition-colors hover:text-foreground">
+                  0720 856 892
                 </a>
               </li>
               <li>
                 <a
-                  href="mailto:info@munexelectronics.co.ke"
+                  href="mailto:munexelectronics@gmail.com"
                   className="transition-colors hover:text-foreground"
                 >
-                  info@munexelectronics.co.ke
+                  munexelectronics@gmail.com
                 </a>
               </li>
             </ul>
             {/* Social Icons */}
             <div className="mt-4 flex gap-3">
-              {["Facebook", "Twitter", "Instagram"].map((social) => (
-                <a
-                  key={social}
-                  href="#"
-                  aria-label={social}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  <span className="text-xs font-bold">{social[0]}</span>
-                </a>
-              ))}
+              <a
+                href="https://instagram.com/munexelectronics"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Instagram"
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <span className="text-xs font-bold">IG</span>
+              </a>
+              <a
+                href="https://twitter.com/munexelectronics"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Twitter / X"
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <span className="text-xs font-bold">X</span>
+              </a>
+              <a
+                href="https://wa.me/254720856892"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="WhatsApp"
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <span className="text-xs font-bold">WA</span>
+              </a>
             </div>
           </div>
         </div>

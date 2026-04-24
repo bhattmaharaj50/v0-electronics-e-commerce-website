@@ -33,7 +33,8 @@ export default function CheckoutPage() {
     mpesaCode: "",
   })
 
-  const deliveryFee = totalPrice > 10000 ? 0 : 500
+  const isNairobi = (formData.city || "").trim().toLowerCase() === "nairobi"
+  const deliveryFee = isNairobi ? 0 : 500
   const grandTotal = totalPrice + deliveryFee
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -348,7 +349,7 @@ export default function CheckoutPage() {
                       required
                       value={formData.address}
                       onChange={handleChange}
-                      placeholder="e.g. Narok Town, Main Street"
+                      placeholder="e.g. Westlands, Apartment 4B"
                       className="h-10 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     />
                   </div>
@@ -365,8 +366,8 @@ export default function CheckoutPage() {
                       className="h-10 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     >
                       <option value="">Select city</option>
+                      <option value="Nairobi">Nairobi (Free delivery)</option>
                       <option value="Narok">Narok</option>
-                      <option value="Nairobi">Nairobi</option>
                       <option value="Mombasa">Mombasa</option>
                       <option value="Kisumu">Kisumu</option>
                       <option value="Nakuru">Nakuru</option>
@@ -646,11 +647,15 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            {totalPrice >= 10000 && (
+            {isNairobi ? (
               <p className="mt-3 text-center text-xs font-medium text-[#25D366]">
-                Free delivery on this order!
+                Free delivery within Nairobi!
               </p>
-            )}
+            ) : formData.city ? (
+              <p className="mt-3 text-center text-xs text-muted-foreground">
+                Free delivery is available within Nairobi only.
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
