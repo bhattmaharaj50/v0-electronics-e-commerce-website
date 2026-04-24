@@ -7,12 +7,13 @@ import { useProductStore } from "@/lib/product-store"
 
 export function HeroSection() {
   const { settings } = useProductStore()
+  const heroImage = settings.heroImageUrl || "/images/hero-electronics.jpg"
 
   return (
     <section className="relative overflow-hidden">
       <div className="absolute inset-0">
         <Image
-          src="/images/hero-electronics.jpg"
+          src={heroImage}
           alt="Premium electronics collection"
           fill
           priority

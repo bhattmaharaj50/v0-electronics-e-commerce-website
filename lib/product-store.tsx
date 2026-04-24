@@ -31,6 +31,14 @@ export interface SiteSettings {
   holidayDealsTitle: string
   adminPhone: string
   mpesaNumber: string
+  logoText: string
+  logoUrl: string
+  heroImageUrl: string
+  heroAdVideoUrl: string
+  heroAdTitle: string
+  heroAdSubtitle: string
+  pickupLocation: string
+  businessName: string
 }
 
 interface ProductStoreContextType {
@@ -58,8 +66,16 @@ export const defaultSettings: SiteSettings = {
   flashSaleTitle: "Flash Sales",
   dealOfDayTitle: "Deal of the Day",
   holidayDealsTitle: "Holiday Deals",
-  adminPhone: "254793823013",
-  mpesaNumber: "0793823013",
+  adminPhone: "254720856892",
+  mpesaNumber: "0720856892",
+  logoText: "Munex Electronics",
+  logoUrl: "",
+  heroImageUrl: "/images/hero-electronics.jpg",
+  heroAdVideoUrl: "",
+  heroAdTitle: "See What's New",
+  heroAdSubtitle: "Watch our latest product showcase",
+  pickupLocation: "Munex Electronics Shop, Narok Town, Main Street",
+  businessName: "Munex Electronics",
 }
 
 async function requestAdminAction(action: string, payload: Record<string, unknown>) {

@@ -3,18 +3,24 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
+  Activity,
   Check,
   Gift,
+  Image as ImageIcon,
   LayoutDashboard,
   LogOut,
+  MapPin,
+  MessageCircle,
   Package,
   Pencil,
   Plus,
   Search,
   Settings,
   ShoppingBag,
+  Star,
   Tag,
   Trash2,
+  Truck,
   Upload,
   Video,
   X,
@@ -25,7 +31,7 @@ import type { Product } from "@/lib/products"
 import { formatPrice } from "@/lib/products"
 
 const AUTH_KEY = "munex_admin_auth"
-const ORDER_STATUSES = ["new", "confirmed", "processing", "delivered", "cancelled"]
+const ORDER_STATUSES = ["new", "pending_payment", "paid", "confirmed", "processing", "ready", "dispatched", "delivered", "cancelled"]
 const OFFER_TYPES = [
   { value: "", label: "No offer" },
   { value: "flash-sale", label: "Flash sale" },
@@ -45,10 +51,38 @@ interface OrderRecord {
   mpesaCode?: string
   status: string
   whatsappUrl: string
+  pickupLocation?: string
+  customerWhatsappUrl?: string
+  paidAt?: string
+  readyAt?: string
+  dispatchedAt?: string
   createdAt: string
 }
 
-type Tab = "overview" | "products" | "categories" | "orders" | "offers" | "settings"
+interface ReviewItem {
+  id: number
+  productId: string
+  name: string
+  rating: number
+  comment: string
+  createdAt: string
+}
+
+interface AnalyticsData {
+  totalViews: number
+  uniqueVisitors: number
+  viewsLast24h: number
+  viewsLast7d: number
+  viewsLast30d: number
+  topPages: Array<{ path: string; views: number }>
+  topCountries: Array<{ label: string; views: number }>
+  topCities: Array<{ label: string; views: number }>
+  topReferrers: Array<{ label: string; views: number }>
+  recentVisits: Array<{ path: string; country: string; city: string; referrer: string; userAgent: string; createdAt: string }>
+  dailySeries: Array<{ day: string; views: number }>
+}
+
+type Tab = "overview" | "products" | "categories" | "orders" | "offers" | "reviews" | "analytics" | "settings"
 
 const emptyProduct: Product = {
   id: "",
@@ -59,6 +93,7 @@ const emptyProduct: Product = {
   brand: "",
   size: "",
   image: "",
+  images: [],
   videoUrl: "",
   rating: 4.5,
   reviews: 0,
@@ -89,6 +124,21 @@ async function adminAction(action: string, payload: Record<string, unknown>) {
   return response.json()
 }
 
+function buildDispatchWhatsAppUrl(order: OrderRecord, pickupLocation: string, businessName: string) {
+  const phoneRaw = (order.customer.phone || "").replace(/\D/g, "")
+  let phone = phoneRaw
+  if (phone.startsWith("0")) phone = "254" + phone.slice(1)
+  else if (phone.startsWith("7") || phone.startsWith("1")) phone = "254" + phone
+  const itemSummary = order.items
+    .map((item) => `• ${item.product.name} x${item.quantity}`)
+    .join("\n")
+  const message =
+    `Hello ${order.customer.firstName}, your order ${order.orderNumber} from ${businessName} is READY for pickup!\n\n` +
+    `Items:\n${itemSummary}\n\nTotal: ${formatPrice(order.total)}\n\n` +
+    `Pickup location:\n${pickupLocation}\n\nPlease come over with your order number. Thank you!`
+  return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+}
+
 export default function AdminDashboardPage() {
   const router = useRouter()
   const {
@@ -107,6 +157,8 @@ export default function AdminDashboardPage() {
 
   const [tab, setTab] = useState<Tab>("overview")
   const [orders, setOrders] = useState<OrderRecord[]>([])
+  const [allReviews, setAllReviews] = useState<ReviewItem[]>([])
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
   const [search, setSearch] = useState("")
   const [toast, setToast] = useState<string | null>(null)
   const [productFormOpen, setProductFormOpen] = useState(false)
@@ -120,7 +172,13 @@ export default function AdminDashboardPage() {
   const [imageMode, setImageMode] = useState<"url" | "upload">("url")
   const [videoMode, setVideoMode] = useState<"url" | "upload">("url")
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [uploadingGallery, setUploadingGallery] = useState(false)
   const [uploadingVideo, setUploadingVideo] = useState(false)
+  const [uploadingHeroImage, setUploadingHeroImage] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [uploadingHeroVideo, setUploadingHeroVideo] = useState(false)
+  const [extraImageUrl, setExtraImageUrl] = useState("")
+  const [pickupInputs, setPickupInputs] = useState<Record<string, string>>({})
 
   useEffect(() => {
     try {
@@ -138,11 +196,23 @@ export default function AdminDashboardPage() {
     loadAdminData().catch((error) => showToast(error.message))
   }, [])
 
+  useEffect(() => {
+    if (tab === "analytics") loadAnalytics().catch((error) => showToast(error.message))
+  }, [tab])
+
   async function loadAdminData() {
     const response = await fetch("/api/admin/data", { cache: "no-store" })
     if (!response.ok) throw new Error("Unable to load admin data")
     const data = await response.json()
     setOrders(data.orders || [])
+    setAllReviews(data.allReviews || [])
+  }
+
+  async function loadAnalytics() {
+    const response = await fetch("/api/admin/analytics", { cache: "no-store" })
+    if (!response.ok) throw new Error("Unable to load analytics")
+    const data = await response.json()
+    setAnalytics(data.analytics)
   }
 
   function showToast(message: string) {
@@ -167,21 +237,23 @@ export default function AdminDashboardPage() {
 
   const lowStockProducts = products.filter((product) => (product.stock ?? 0) <= 3)
   const activeOffers = products.filter((product) => product.offerType || product.originalPrice)
-  const newOrders = orders.filter((order) => order.status === "new")
+  const newOrders = orders.filter((order) => order.status === "new" || order.status === "pending_payment")
 
   function openAddProduct() {
     setEditingProduct(null)
-    setProductForm({ ...emptyProduct, id: `prod-${Date.now()}` })
+    setProductForm({ ...emptyProduct, id: `prod-${Date.now()}`, images: [] })
     setImageMode("url")
     setVideoMode("url")
+    setExtraImageUrl("")
     setProductFormOpen(true)
   }
 
   function openEditProduct(product: Product) {
     setEditingProduct(product)
-    setProductForm({ ...emptyProduct, ...product })
+    setProductForm({ ...emptyProduct, ...product, images: [...(product.images || [])] })
     setImageMode("url")
     setVideoMode("url")
+    setExtraImageUrl("")
     setProductFormOpen(true)
   }
 
@@ -198,6 +270,7 @@ export default function AdminDashboardPage() {
       badge: productForm.badge || undefined,
       offerType: productForm.offerType || "",
       videoUrl: productForm.videoUrl || undefined,
+      images: (productForm.images || []).filter(Boolean),
     }
     if (!product.id || !product.name || !product.category || !product.brand || !product.image) {
       showToast("Please fill all required product fields")
@@ -226,26 +299,54 @@ export default function AdminDashboardPage() {
     showToast(`Stock updated to ${newStock}`)
   }
 
-  async function handleFileUpload(
-    file: File,
-    type: "image" | "video",
-    onSuccess: (url: string) => void
-  ) {
+  async function uploadFile(file: File): Promise<string> {
+    const fd = new FormData()
+    fd.append("file", file)
+    const res = await fetch("/api/upload", { method: "POST", body: fd })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || "Upload failed")
+    return data.url as string
+  }
+
+  async function handleFileUpload(file: File, type: "image" | "video", onSuccess: (url: string) => void) {
     const setter = type === "image" ? setUploadingImage : setUploadingVideo
     setter(true)
     try {
-      const fd = new FormData()
-      fd.append("file", file)
-      const res = await fetch("/api/upload", { method: "POST", body: fd })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Upload failed")
-      onSuccess(data.url)
-      showToast(`${type === "image" ? "Image" : "Video"} uploaded successfully`)
+      const url = await uploadFile(file)
+      onSuccess(url)
+      showToast(`${type === "image" ? "Image" : "Video"} uploaded`)
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Upload failed")
     } finally {
       setter(false)
     }
+  }
+
+  async function handleGalleryFiles(files: FileList) {
+    setUploadingGallery(true)
+    try {
+      const uploaded: string[] = []
+      for (const file of Array.from(files)) {
+        const url = await uploadFile(file)
+        uploaded.push(url)
+      }
+      setProductForm((prev) => ({ ...prev, images: [...(prev.images || []), ...uploaded] }))
+      showToast(`Added ${uploaded.length} image(s) to gallery`)
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Upload failed")
+    } finally {
+      setUploadingGallery(false)
+    }
+  }
+
+  function addExtraImage() {
+    if (!extraImageUrl.trim()) return
+    setProductForm((prev) => ({ ...prev, images: [...(prev.images || []), extraImageUrl.trim()] }))
+    setExtraImageUrl("")
+  }
+
+  function removeGalleryImage(index: number) {
+    setProductForm((prev) => ({ ...prev, images: (prev.images || []).filter((_, i) => i !== index) }))
   }
 
   function openAddCategory() {
@@ -278,7 +379,7 @@ export default function AdminDashboardPage() {
   async function saveSiteSettings(e: React.FormEvent) {
     e.preventDefault()
     await updateSettings(settingsForm)
-    showToast("Website text and contact settings updated")
+    showToast("Website settings updated")
   }
 
   async function changeOrderStatus(orderNumber: string, status: string) {
@@ -287,13 +388,75 @@ export default function AdminDashboardPage() {
     showToast("Order status updated")
   }
 
+  async function deleteOrderRow(orderNumber: string) {
+    if (!confirm("Delete this order permanently?")) return
+    const data = await adminAction("deleteOrder", { orderNumber })
+    setOrders(data.orders || [])
+    showToast("Order deleted")
+  }
+
+  async function clearAllOrders() {
+    if (!confirm(`Delete all ${orders.length} orders? This cannot be undone.`)) return
+    for (const order of orders) {
+      await adminAction("deleteOrder", { orderNumber: order.orderNumber }).catch(() => {})
+    }
+    await loadAdminData()
+    showToast("All orders cleared")
+  }
+
+  async function markPaid(orderNumber: string) {
+    const data = await adminAction("markOrderPaid", { orderNumber })
+    setOrders(data.orders || [])
+    showToast("Order marked as paid")
+  }
+
+  async function markReadyAndDispatch(order: OrderRecord) {
+    const pickupLocation = (pickupInputs[order.orderNumber] || settings.pickupLocation || "").trim()
+    if (!pickupLocation) {
+      showToast("Enter a pickup location first")
+      return
+    }
+    const dispatchUrl = buildDispatchWhatsAppUrl(order, pickupLocation, settings.businessName || "Munex Electronics")
+    await adminAction("markOrderReady", { orderNumber: order.orderNumber, pickupLocation })
+    const data = await adminAction("markOrderDispatched", { orderNumber: order.orderNumber, customerWhatsappUrl: dispatchUrl })
+    setOrders(data.orders || [])
+    showToast("Customer notified — WhatsApp opened")
+    window.open(dispatchUrl, "_blank")
+  }
+
+  async function deleteReview(id: number) {
+    if (!confirm("Delete this review?")) return
+    const data = await adminAction("deleteReview", { id })
+    setAllReviews(data.allReviews || [])
+    await refreshStore()
+    showToast("Review deleted")
+  }
+
+  async function uploadHomepageAsset(file: File, kind: "logo" | "heroImage" | "heroVideo") {
+    const setter = kind === "logo" ? setUploadingLogo : kind === "heroImage" ? setUploadingHeroImage : setUploadingHeroVideo
+    setter(true)
+    try {
+      const url = await uploadFile(file)
+      const key = kind === "logo" ? "logoUrl" : kind === "heroImage" ? "heroImageUrl" : "heroAdVideoUrl"
+      setSettingsForm((prev) => ({ ...prev, [key]: url }))
+      await updateSettings({ [key]: url } as Partial<SiteSettings>)
+      showToast(`${kind === "logo" ? "Logo" : kind === "heroImage" ? "Hero image" : "Hero video"} updated`)
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Upload failed")
+    } finally {
+      setter(false)
+    }
+  }
+
   const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
     { id: "overview", label: "Overview", icon: <LayoutDashboard className="h-4 w-4" /> },
     { id: "products", label: "Products & Stock", icon: <Package className="h-4 w-4" /> },
     { id: "categories", label: "Categories", icon: <Tag className="h-4 w-4" /> },
     { id: "orders", label: "Orders", icon: <ShoppingBag className="h-4 w-4" /> },
     { id: "offers", label: "Offers", icon: <Gift className="h-4 w-4" /> },
-    { id: "settings", label: "Website Text", icon: <Settings className="h-4 w-4" /> },
+    { id: "reviews", label: "Reviews", icon: <Star className="h-4 w-4" /> },
+    { id: "analytics", label: "Analytics", icon: <Activity className="h-4 w-4" /> },
+    { id: "settings", label: "Homepage & Settings", icon: <Settings className="h-4 w-4" /> },
   ]
 
   return (
@@ -312,7 +475,7 @@ export default function AdminDashboardPage() {
               <Zap className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <span className="text-base font-bold text-foreground">Munex Admin Backend</span>
+              <span className="text-base font-bold text-foreground">{settings.businessName || "Munex"} Admin</span>
               {newOrders.length > 0 && <span className="ml-2 rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">{newOrders.length} new</span>}
             </div>
           </div>
@@ -354,7 +517,7 @@ export default function AdminDashboardPage() {
                     <p className="text-sm font-semibold text-foreground">{order.orderNumber}</p>
                     <p className="text-xs text-muted-foreground">{order.customer.firstName} {order.customer.lastName} · {formatPrice(order.total)}</p>
                   </div>
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${order.status === "new" ? "bg-red-600/20 text-red-500" : order.status === "delivered" ? "bg-green-600/20 text-green-500" : "bg-secondary text-muted-foreground"}`}>{order.status}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${order.status === "new" || order.status === "pending_payment" ? "bg-red-600/20 text-red-500" : order.status === "delivered" ? "bg-green-600/20 text-green-500" : "bg-secondary text-muted-foreground"}`}>{order.status}</span>
                 </div>
               ))}
               {orders.length > 3 && <button onClick={() => setTab("orders")} className="mt-2 text-xs font-medium text-muted-foreground hover:text-foreground">View all {orders.length} orders →</button>}
@@ -374,7 +537,7 @@ export default function AdminDashboardPage() {
             <div className="overflow-hidden rounded-xl border border-border">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-secondary/50 text-xs uppercase text-muted-foreground"><tr><th className="px-4 py-3 text-left">Product</th><th className="px-4 py-3 text-left">Category</th><th className="px-4 py-3 text-left">Price</th><th className="px-4 py-3 text-left">Stock</th><th className="px-4 py-3 text-left">Offer</th><th className="px-4 py-3 text-right">Actions</th></tr></thead>
+                  <thead className="bg-secondary/50 text-xs uppercase text-muted-foreground"><tr><th className="px-4 py-3 text-left">Product</th><th className="px-4 py-3 text-left">Category</th><th className="px-4 py-3 text-left">Price</th><th className="px-4 py-3 text-left">Stock</th><th className="px-4 py-3 text-left">Photos</th><th className="px-4 py-3 text-left">Offer</th><th className="px-4 py-3 text-right">Actions</th></tr></thead>
                   <tbody>
                     {filteredProducts.map((product) => (
                       <tr key={product.id} className="border-t border-border">
@@ -391,6 +554,7 @@ export default function AdminDashboardPage() {
                             className={`h-8 w-20 rounded-md border border-border bg-secondary px-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-ring ${(product.stock ?? 0) <= 3 ? "text-red-500" : "text-foreground"}`}
                           />
                         </td>
+                        <td className="px-4 py-3 text-muted-foreground">{1 + (product.images?.length || 0)}{product.videoUrl ? " + video" : ""}</td>
                         <td className="px-4 py-3 text-muted-foreground">{OFFER_TYPES.find((offer) => offer.value === (product.offerType || ""))?.label || "No offer"}</td>
                         <td className="px-4 py-3"><div className="flex justify-end gap-2"><button onClick={() => openEditProduct(product)} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-secondary"><Pencil className="h-4 w-4" /></button><button onClick={() => removeProduct(product.id)} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></button></div></td>
                       </tr>
@@ -419,18 +583,80 @@ export default function AdminDashboardPage() {
 
         {tab === "orders" && (
           <div className="grid gap-4">
-            {orders.length === 0 ? <p className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">No orders yet.</p> : orders.map((order) => (
-              <div key={order.orderNumber} className="rounded-xl border border-border bg-card p-5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div><h3 className="font-bold text-foreground">{order.orderNumber}</h3><p className="text-sm text-muted-foreground">{order.customer.firstName} {order.customer.lastName} · {order.customer.phone} · {new Date(order.createdAt).toLocaleString()}</p></div>
-                  <select value={order.status} onChange={(e) => changeOrderStatus(order.orderNumber, e.target.value)} className="h-9 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground">{ORDER_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-muted-foreground">{orders.length} orders</p>
+              {orders.length > 0 && (
+                <button onClick={clearAllOrders} className="rounded-lg border border-destructive/50 px-3 py-1.5 text-xs font-semibold text-destructive hover:bg-destructive/10">
+                  Clear all orders
+                </button>
+              )}
+            </div>
+            {orders.length === 0 ? <p className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">No orders yet.</p> : orders.map((order) => {
+              const pickupValue = pickupInputs[order.orderNumber] !== undefined ? pickupInputs[order.orderNumber] : (order.pickupLocation || settings.pickupLocation || "")
+              return (
+                <div key={order.orderNumber} className="rounded-xl border border-border bg-card p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-bold text-foreground">{order.orderNumber}</h3>
+                      <p className="text-sm text-muted-foreground">{order.customer.firstName} {order.customer.lastName} · {order.customer.phone} · {new Date(order.createdAt).toLocaleString()}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select value={order.status} onChange={(e) => changeOrderStatus(order.orderNumber, e.target.value)} className="h-9 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground">{ORDER_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select>
+                      <button onClick={() => deleteOrderRow(order.orderNumber)} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" title="Delete order">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                    <div className="lg:col-span-2">
+                      <p className="text-xs font-semibold uppercase text-muted-foreground">Items</p>
+                      {order.items.map((item) => <p key={item.product.id} className="mt-1 text-sm text-foreground">{item.product.name} x{item.quantity} — {formatPrice(item.product.price * item.quantity)}</p>)}
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-muted-foreground">Delivery & Payment</p>
+                      <p className="mt-1 text-sm text-foreground">{order.customer.address}, {order.customer.city}</p>
+                      <p className="text-sm text-foreground">{order.paymentMethod}{order.mpesaCode ? ` · ${order.mpesaCode}` : ""}</p>
+                      <p className="mt-2 font-bold text-foreground">{formatPrice(order.total)}</p>
+                      <a href={order.whatsappUrl} target="_blank" className="mt-3 inline-flex rounded-lg bg-[#25D366] px-3 py-2 text-xs font-semibold text-white">Open WhatsApp message</a>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 rounded-xl border border-border bg-secondary/40 p-4 lg:grid-cols-2">
+                    <div>
+                      <Label>Pickup location / instructions</Label>
+                      <textarea
+                        value={pickupValue}
+                        onChange={(e) => setPickupInputs((prev) => ({ ...prev, [order.orderNumber]: e.target.value }))}
+                        className="min-h-20 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                        placeholder={settings.pickupLocation || "e.g. Munex Electronics, Narok Town, Main Street"}
+                      />
+                    </div>
+                    <div className="flex flex-col justify-between gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        {order.paidAt && <span className="rounded-full bg-green-600/20 px-2 py-0.5 text-xs font-semibold text-green-600">Paid {new Date(order.paidAt).toLocaleDateString()}</span>}
+                        {order.readyAt && <span className="rounded-full bg-blue-600/20 px-2 py-0.5 text-xs font-semibold text-blue-500">Ready {new Date(order.readyAt).toLocaleDateString()}</span>}
+                        {order.dispatchedAt && <span className="rounded-full bg-emerald-600/20 px-2 py-0.5 text-xs font-semibold text-emerald-500">Dispatched {new Date(order.dispatchedAt).toLocaleDateString()}</span>}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {!order.paidAt && order.paymentMethod === "mpesa" && (
+                          <button onClick={() => markPaid(order.orderNumber)} className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white hover:bg-green-700">
+                            <Check className="h-3.5 w-3.5" />Mark Paid
+                          </button>
+                        )}
+                        <button onClick={() => markReadyAndDispatch(order)} className="flex items-center gap-1.5 rounded-lg bg-[#25D366] px-3 py-2 text-xs font-semibold text-white hover:opacity-90">
+                          <Truck className="h-3.5 w-3.5" />Mark Ready & WhatsApp Customer
+                        </button>
+                        {order.customerWhatsappUrl && (
+                          <a href={order.customerWhatsappUrl} target="_blank" className="flex items-center gap-1.5 rounded-lg border border-[#25D366] px-3 py-2 text-xs font-semibold text-[#25D366] hover:bg-[#25D366]/10">
+                            <MessageCircle className="h-3.5 w-3.5" />Re-open dispatch message
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="mt-4 grid gap-3 lg:grid-cols-3">
-                  <div className="lg:col-span-2"><p className="text-xs font-semibold uppercase text-muted-foreground">Items</p>{order.items.map((item) => <p key={item.product.id} className="mt-1 text-sm text-foreground">{item.product.name} x{item.quantity} — {formatPrice(item.product.price * item.quantity)}</p>)}</div>
-                  <div><p className="text-xs font-semibold uppercase text-muted-foreground">Delivery & Payment</p><p className="mt-1 text-sm text-foreground">{order.customer.address}, {order.customer.city}</p><p className="text-sm text-foreground">{order.paymentMethod}{order.mpesaCode ? ` · ${order.mpesaCode}` : ""}</p><p className="mt-2 font-bold text-foreground">{formatPrice(order.total)}</p><a href={order.whatsappUrl} target="_blank" className="mt-3 inline-flex rounded-lg bg-[#25D366] px-3 py-2 text-xs font-semibold text-white">Open WhatsApp message</a></div>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
@@ -446,17 +672,205 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
+        {tab === "reviews" && (
+          <div className="grid gap-3">
+            {allReviews.length === 0 ? <p className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">No reviews yet.</p> : allReviews.map((review) => {
+              const product = products.find((p) => p.id === review.productId)
+              return (
+                <div key={review.id} className="rounded-xl border border-border bg-card p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-foreground">{review.name}</p>
+                      <p className="text-xs text-muted-foreground">{product?.name || review.productId} · {new Date(review.createdAt).toLocaleString()}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-0.5">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star key={i} className={`h-4 w-4 ${i < review.rating ? "fill-yellow-500 text-yellow-500" : "text-muted-foreground"}`} />
+                        ))}
+                      </div>
+                      <button onClick={() => deleteReview(review.id)} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-sm text-foreground">{review.comment}</p>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {tab === "analytics" && (
+          <div className="grid gap-4">
+            {!analytics ? <p className="text-sm text-muted-foreground">Loading analytics…</p> : (
+              <>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                  <Stat title="Total views" value={analytics.totalViews} />
+                  <Stat title="Unique visitors" value={analytics.uniqueVisitors} />
+                  <Stat title="Last 24h" value={analytics.viewsLast24h} />
+                  <Stat title="Last 7 days" value={analytics.viewsLast7d} />
+                  <Stat title="Last 30 days" value={analytics.viewsLast30d} />
+                </div>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <AnalyticsCard title="Top pages" rows={analytics.topPages.map((r) => ({ label: r.path, value: r.views }))} />
+                  <AnalyticsCard title="Top countries" rows={analytics.topCountries.map((r) => ({ label: r.label, value: r.views }))} />
+                  <AnalyticsCard title="Top cities" rows={analytics.topCities.map((r) => ({ label: r.label, value: r.views }))} />
+                  <AnalyticsCard title="Top referrers" rows={analytics.topReferrers.map((r) => ({ label: r.label, value: r.views }))} />
+                </div>
+                <div className="rounded-xl border border-border bg-card p-5">
+                  <h3 className="mb-3 font-bold text-foreground">Daily views (last 14 days)</h3>
+                  {analytics.dailySeries.length === 0 ? <p className="text-sm text-muted-foreground">No data yet.</p> : (
+                    <div className="flex h-32 items-end gap-2">
+                      {analytics.dailySeries.map((d) => {
+                        const max = Math.max(...analytics.dailySeries.map((x) => x.views), 1)
+                        const height = Math.round((d.views / max) * 100)
+                        return (
+                          <div key={d.day} className="flex flex-1 flex-col items-center gap-1">
+                            <div className="w-full rounded-t bg-primary/80" style={{ height: `${height}%`, minHeight: 2 }} title={`${d.day}: ${d.views} views`} />
+                            <span className="truncate text-[10px] text-muted-foreground">{d.day.slice(5)}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+                <div className="rounded-xl border border-border bg-card p-5">
+                  <h3 className="mb-3 font-bold text-foreground">Recent visits</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-secondary/50 text-xs uppercase text-muted-foreground">
+                        <tr><th className="px-3 py-2 text-left">When</th><th className="px-3 py-2 text-left">Page</th><th className="px-3 py-2 text-left">Country</th><th className="px-3 py-2 text-left">City</th><th className="px-3 py-2 text-left">Referrer</th></tr>
+                      </thead>
+                      <tbody>
+                        {analytics.recentVisits.map((visit, i) => (
+                          <tr key={i} className="border-t border-border">
+                            <td className="px-3 py-2 text-xs text-muted-foreground">{new Date(visit.createdAt).toLocaleString()}</td>
+                            <td className="px-3 py-2 text-xs text-foreground">{visit.path}</td>
+                            <td className="px-3 py-2 text-xs text-foreground">{visit.country}</td>
+                            <td className="px-3 py-2 text-xs text-foreground">{visit.city}</td>
+                            <td className="px-3 py-2 text-xs text-muted-foreground">{visit.referrer}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {tab === "settings" && (
-          <form onSubmit={saveSiteSettings} className="grid gap-4 rounded-xl border border-border bg-card p-5 md:grid-cols-2">
-            <div><Label>Hero badge</Label><Input value={settingsForm.heroBadge} onChange={(e) => setSettingsForm({ ...settingsForm, heroBadge: e.target.value })} /></div>
-            <div><Label>Hero title</Label><Input value={settingsForm.heroTitle} onChange={(e) => setSettingsForm({ ...settingsForm, heroTitle: e.target.value })} /></div>
-            <div className="md:col-span-2"><Label>Hero subtitle</Label><Input value={settingsForm.heroSubtitle} onChange={(e) => setSettingsForm({ ...settingsForm, heroSubtitle: e.target.value })} /></div>
-            <div><Label>Flash sale title</Label><Input value={settingsForm.flashSaleTitle} onChange={(e) => setSettingsForm({ ...settingsForm, flashSaleTitle: e.target.value })} /></div>
-            <div><Label>Deal of the day title</Label><Input value={settingsForm.dealOfDayTitle} onChange={(e) => setSettingsForm({ ...settingsForm, dealOfDayTitle: e.target.value })} /></div>
-            <div><Label>Holiday deals title</Label><Input value={settingsForm.holidayDealsTitle} onChange={(e) => setSettingsForm({ ...settingsForm, holidayDealsTitle: e.target.value })} /></div>
-            <div><Label>WhatsApp number</Label><Input value={settingsForm.adminPhone} onChange={(e) => setSettingsForm({ ...settingsForm, adminPhone: e.target.value })} /></div>
-            <div><Label>M-Pesa number</Label><Input value={settingsForm.mpesaNumber} onChange={(e) => setSettingsForm({ ...settingsForm, mpesaNumber: e.target.value })} /></div>
-            <div className="md:col-span-2"><button className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">Save Website Settings</button></div>
+          <form onSubmit={saveSiteSettings} className="grid gap-6">
+            <section className="rounded-xl border border-border bg-card p-5">
+              <h3 className="mb-3 text-base font-bold text-foreground">Branding & Contact</h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label>Business name</Label>
+                  <Input value={settingsForm.businessName} onChange={(e) => setSettingsForm({ ...settingsForm, businessName: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Logo text (shown in navbar)</Label>
+                  <Input value={settingsForm.logoText} onChange={(e) => setSettingsForm({ ...settingsForm, logoText: e.target.value })} />
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Logo image (optional, replaces lightning icon)</Label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Input value={settingsForm.logoUrl} onChange={(e) => setSettingsForm({ ...settingsForm, logoUrl: e.target.value })} placeholder="https://... or upload" />
+                    <label className={`flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary ${uploadingLogo ? "opacity-50 pointer-events-none" : ""}`}>
+                      <Upload className="h-3.5 w-3.5" />{uploadingLogo ? "Uploading…" : "Upload logo"}
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadHomepageAsset(f, "logo") }} />
+                    </label>
+                    {settingsForm.logoUrl && <img src={settingsForm.logoUrl} alt="logo preview" className="h-12 rounded-lg border border-border object-contain" />}
+                  </div>
+                </div>
+                <div>
+                  <Label>WhatsApp / admin number (international)</Label>
+                  <Input value={settingsForm.adminPhone} onChange={(e) => setSettingsForm({ ...settingsForm, adminPhone: e.target.value })} placeholder="254720856892" />
+                </div>
+                <div>
+                  <Label>M-Pesa number</Label>
+                  <Input value={settingsForm.mpesaNumber} onChange={(e) => setSettingsForm({ ...settingsForm, mpesaNumber: e.target.value })} placeholder="0720856892" />
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Default pickup location (used in dispatch WhatsApp)</Label>
+                  <Input value={settingsForm.pickupLocation} onChange={(e) => setSettingsForm({ ...settingsForm, pickupLocation: e.target.value })} placeholder="Shop address & directions" />
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-border bg-card p-5">
+              <h3 className="mb-3 text-base font-bold text-foreground">Hero Section</h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label>Hero badge</Label>
+                  <Input value={settingsForm.heroBadge} onChange={(e) => setSettingsForm({ ...settingsForm, heroBadge: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Hero title</Label>
+                  <Input value={settingsForm.heroTitle} onChange={(e) => setSettingsForm({ ...settingsForm, heroTitle: e.target.value })} />
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Hero subtitle</Label>
+                  <Input value={settingsForm.heroSubtitle} onChange={(e) => setSettingsForm({ ...settingsForm, heroSubtitle: e.target.value })} />
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Hero background image</Label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Input value={settingsForm.heroImageUrl} onChange={(e) => setSettingsForm({ ...settingsForm, heroImageUrl: e.target.value })} placeholder="https://... or upload" />
+                    <label className={`flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary ${uploadingHeroImage ? "opacity-50 pointer-events-none" : ""}`}>
+                      <ImageIcon className="h-3.5 w-3.5" />{uploadingHeroImage ? "Uploading…" : "Upload image"}
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadHomepageAsset(f, "heroImage") }} />
+                    </label>
+                  </div>
+                  {settingsForm.heroImageUrl && <img src={settingsForm.heroImageUrl} alt="hero preview" className="mt-2 h-32 w-full rounded-lg border border-border object-cover" />}
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-border bg-card p-5">
+              <h3 className="mb-3 text-base font-bold text-foreground">Featured Showcase Video</h3>
+              <p className="mb-3 text-xs text-muted-foreground">Add an advertisement video to feature on your homepage. Supports YouTube links and direct video uploads.</p>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label>Video title</Label>
+                  <Input value={settingsForm.heroAdTitle} onChange={(e) => setSettingsForm({ ...settingsForm, heroAdTitle: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Video subtitle</Label>
+                  <Input value={settingsForm.heroAdSubtitle} onChange={(e) => setSettingsForm({ ...settingsForm, heroAdSubtitle: e.target.value })} />
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Video URL (YouTube or MP4)</Label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Input value={settingsForm.heroAdVideoUrl} onChange={(e) => setSettingsForm({ ...settingsForm, heroAdVideoUrl: e.target.value })} placeholder="https://youtube.com/watch?v=... or https://..." />
+                    <label className={`flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary ${uploadingHeroVideo ? "opacity-50 pointer-events-none" : ""}`}>
+                      <Video className="h-3.5 w-3.5" />{uploadingHeroVideo ? "Uploading…" : "Upload video"}
+                      <input type="file" accept="video/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadHomepageAsset(f, "heroVideo") }} />
+                    </label>
+                    {settingsForm.heroAdVideoUrl && (
+                      <button type="button" onClick={() => { setSettingsForm({ ...settingsForm, heroAdVideoUrl: "" }); updateSettings({ heroAdVideoUrl: "" }).catch(() => {}) }} className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-destructive hover:bg-destructive/10">
+                        Remove video
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-border bg-card p-5">
+              <h3 className="mb-3 text-base font-bold text-foreground">Section Titles</h3>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div><Label>Flash sale title</Label><Input value={settingsForm.flashSaleTitle} onChange={(e) => setSettingsForm({ ...settingsForm, flashSaleTitle: e.target.value })} /></div>
+                <div><Label>Deal of the day title</Label><Input value={settingsForm.dealOfDayTitle} onChange={(e) => setSettingsForm({ ...settingsForm, dealOfDayTitle: e.target.value })} /></div>
+                <div><Label>Holiday deals title</Label><Input value={settingsForm.holidayDealsTitle} onChange={(e) => setSettingsForm({ ...settingsForm, holidayDealsTitle: e.target.value })} /></div>
+              </div>
+            </section>
+
+            <div className="flex justify-end">
+              <button className="rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground">Save All Settings</button>
+            </div>
           </form>
         )}
       </div>
@@ -477,10 +891,11 @@ export default function AdminDashboardPage() {
               <div><Label>Badge</Label><Input value={productForm.badge || ""} onChange={(e) => setProductForm({ ...productForm, badge: e.target.value })} /></div>
               <div><Label>Rating</Label><Input type="number" step="0.1" min="0" max="5" value={productForm.rating} onChange={(e) => setProductForm({ ...productForm, rating: Number(e.target.value) })} /></div>
               <div><Label>Reviews</Label><Input type="number" value={productForm.reviews} onChange={(e) => setProductForm({ ...productForm, reviews: Number(e.target.value) })} /></div>
-              {/* Image — URL or file upload */}
+
+              {/* Main image */}
               <div className="md:col-span-2">
                 <div className="mb-2 flex items-center justify-between">
-                  <Label>Product Image *</Label>
+                  <Label>Main product image *</Label>
                   <div className="flex rounded-lg border border-border overflow-hidden text-xs">
                     <button type="button" onClick={() => setImageMode("url")} className={`px-3 py-1 ${imageMode === "url" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"}`}>URL</button>
                     <button type="button" onClick={() => setImageMode("upload")} className={`px-3 py-1 ${imageMode === "upload" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"}`}><Upload className="inline h-3 w-3 mr-1" />Upload</button>
@@ -491,17 +906,45 @@ export default function AdminDashboardPage() {
                 ) : (
                   <label className={`flex h-24 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-secondary text-sm text-muted-foreground transition-colors hover:border-primary ${uploadingImage ? "opacity-60 pointer-events-none" : ""}`}>
                     <Upload className="h-5 w-5" />
-                    <span>{uploadingImage ? "Uploading…" : "Click to upload image (JPG, PNG, WebP)"}</span>
+                    <span>{uploadingImage ? "Uploading…" : "Click to upload main image"}</span>
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "image", (url) => { setProductForm((prev) => ({ ...prev, image: url })); setImageMode("url") }) }} />
                   </label>
                 )}
                 {productForm.image && <img src={productForm.image} alt="preview" className="mt-2 h-20 rounded-lg object-cover border border-border" onError={(e) => (e.currentTarget.style.display = "none")} />}
               </div>
 
+              {/* Gallery — multiple additional images */}
+              <div className="md:col-span-2">
+                <Label>Additional product images (gallery)</Label>
+                <div className="rounded-lg border border-dashed border-border bg-secondary/30 p-4">
+                  <div className="flex flex-wrap gap-2">
+                    {(productForm.images || []).map((img, idx) => (
+                      <div key={`${img}-${idx}`} className="group relative h-20 w-20 overflow-hidden rounded-lg border border-border">
+                        <img src={img} alt="gallery" className="h-full w-full object-cover" />
+                        <button type="button" onClick={() => removeGalleryImage(idx)} className="absolute right-1 top-1 hidden rounded-full bg-destructive p-1 text-destructive-foreground group-hover:block">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                    {(productForm.images || []).length === 0 && (
+                      <p className="text-xs text-muted-foreground">No additional images yet. Add as many as you want.</p>
+                    )}
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <Input value={extraImageUrl} onChange={(e) => setExtraImageUrl(e.target.value)} placeholder="Paste image URL and click Add" className="flex-1 min-w-48" />
+                    <button type="button" onClick={addExtraImage} className="rounded-lg border border-border px-3 py-2 text-xs">Add URL</button>
+                    <label className={`flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary ${uploadingGallery ? "opacity-50 pointer-events-none" : ""}`}>
+                      <Upload className="h-3.5 w-3.5" />{uploadingGallery ? "Uploading…" : "Upload images"}
+                      <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { const f = e.target.files; if (f && f.length) handleGalleryFiles(f) }} />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
               {/* Video — URL (YouTube/direct) or file upload */}
               <div className="md:col-span-2">
                 <div className="mb-2 flex items-center justify-between">
-                  <Label><Video className="inline h-3.5 w-3.5 mr-1" />Product Video (optional)</Label>
+                  <Label><Video className="inline h-3.5 w-3.5 mr-1" />Product video (optional)</Label>
                   <div className="flex rounded-lg border border-border overflow-hidden text-xs">
                     <button type="button" onClick={() => setVideoMode("url")} className={`px-3 py-1 ${videoMode === "url" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"}`}>URL / YouTube</button>
                     <button type="button" onClick={() => setVideoMode("upload")} className={`px-3 py-1 ${videoMode === "upload" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"}`}><Upload className="inline h-3 w-3 mr-1" />Upload</button>
@@ -546,6 +989,30 @@ function Stat({ title, value, tone = "normal" }: { title: string; value: number;
     <div className="rounded-xl border border-border bg-card p-5">
       <p className="text-xs text-muted-foreground">{title}</p>
       <p className={`mt-1 text-3xl font-bold ${tone === "warning" ? "text-red-500" : "text-foreground"}`}>{value}</p>
+    </div>
+  )
+}
+
+function AnalyticsCard({ title, rows }: { title: string; rows: Array<{ label: string; value: number }> }) {
+  const max = Math.max(...rows.map((r) => r.value), 1)
+  return (
+    <div className="rounded-xl border border-border bg-card p-5">
+      <h3 className="mb-3 font-bold text-foreground">{title}</h3>
+      {rows.length === 0 ? <p className="text-sm text-muted-foreground">No data yet.</p> : (
+        <div className="space-y-2">
+          {rows.map((row, i) => (
+            <div key={`${row.label}-${i}`}>
+              <div className="mb-1 flex justify-between gap-3 text-xs">
+                <span className="truncate text-foreground" title={row.label}>{row.label}</span>
+                <span className="font-semibold text-muted-foreground">{row.value}</span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                <div className="h-full bg-primary" style={{ width: `${(row.value / max) * 100}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

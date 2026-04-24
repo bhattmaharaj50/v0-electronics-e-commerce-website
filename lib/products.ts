@@ -8,6 +8,7 @@ export interface Product {
   brand: string
   size?: string
   image: string
+  images?: string[]
   videoUrl?: string
   rating: number
   reviews: number

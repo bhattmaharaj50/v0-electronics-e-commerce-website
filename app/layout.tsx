@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next"
+import { Suspense } from "react"
 import { Inter, Space_Grotesk } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { CartProvider } from "@/lib/cart-context"
@@ -6,6 +7,7 @@ import { ProductStoreProvider } from "@/lib/product-store"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { WhatsAppButton } from "@/components/whatsapp-button"
+import { AnalyticsTracker } from "@/components/analytics-tracker"
 import "./globals.css"
 
 const _inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
@@ -50,6 +52,9 @@ export default function RootLayout({
             <main className="min-h-screen">{children}</main>
             <Footer />
             <WhatsAppButton />
+            <Suspense fallback={null}>
+              <AnalyticsTracker />
+            </Suspense>
           </CartProvider>
         </ProductStoreProvider>
         <Analytics />

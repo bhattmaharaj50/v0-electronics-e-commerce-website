@@ -1,4 +1,5 @@
 import { HeroSection } from "@/components/home/hero-section"
+import { AdVideoSection } from "@/components/home/ad-video-section"
 import { CategoriesSection } from "@/components/home/categories-section"
 import { FeaturedProducts } from "@/components/home/featured-products"
 import { DealsSection } from "@/components/home/deals-section"
@@ -10,6 +11,7 @@ export default function HomePage() {
   return (
     <>
       <HeroSection />
+      <AdVideoSection />
       <CategoriesSection />
       <FeaturedProducts />
       <DealsSection />

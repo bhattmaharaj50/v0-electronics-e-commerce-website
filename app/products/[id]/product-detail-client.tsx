@@ -1,37 +1,33 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import Image from "next/image"
 import { Star, ShoppingCart, Heart, Share2, ArrowLeft, Minus, Plus, Play } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { formatPrice } from "@/lib/products"
 import { useCart } from "@/lib/cart-context"
 import { useProductStore } from "@/lib/product-store"
 import { ProductCard } from "@/components/product-card"
+import { ProductReviews } from "@/components/product-reviews"
 
 function getYouTubeId(url: string): string | null {
-  const regexps = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/\s]{11})/,
-  ]
-  for (const re of regexps) {
-    const match = url.match(re)
-    if (match) return match[1]
-  }
-  return null
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/\s]{11})/)
+  return match ? match[1] : null
 }
 
 function ProductVideo({ url }: { url: string }) {
   const [playing, setPlaying] = useState(false)
   const ytId = getYouTubeId(url)
 
-  if (ytId) {
-    return (
-      <div className="mt-6 overflow-hidden rounded-xl border border-border">
-        <div className="flex items-center gap-2 border-b border-border bg-secondary/50 px-4 py-2.5">
-          <Play className="h-4 w-4 text-foreground" />
-          <span className="text-sm font-semibold text-foreground">Product Video</span>
-        </div>
-        {playing ? (
+  return (
+    <div className="mt-6 overflow-hidden rounded-xl border border-border">
+      <div className="flex items-center gap-2 border-b border-border bg-secondary/50 px-4 py-2.5">
+        <Play className="h-4 w-4 text-foreground" />
+        <span className="text-sm font-semibold text-foreground">Product Video</span>
+      </div>
+      {ytId ? (
+        playing ? (
           <div className="relative aspect-video w-full">
             <iframe
               src={`https://www.youtube.com/embed/${ytId}?autoplay=1`}
@@ -56,53 +52,88 @@ function ProductVideo({ url }: { url: string }) {
               <Play className="h-7 w-7 fill-background text-background" />
             </div>
           </button>
-        )}
-      </div>
-    )
-  }
+        )
+      ) : (
+        <video src={url} controls className="aspect-video w-full" preload="metadata" />
+      )}
+    </div>
+  )
+}
+
+function ProductGallery({ images, name }: { images: string[]; name: string }) {
+  const [active, setActive] = useState(0)
+  const main = images[active] || images[0]
 
   return (
-    <div className="mt-6 overflow-hidden rounded-xl border border-border">
-      <div className="flex items-center gap-2 border-b border-border bg-secondary/50 px-4 py-2.5">
-        <Play className="h-4 w-4 text-foreground" />
-        <span className="text-sm font-semibold text-foreground">Product Video</span>
+    <div>
+      <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-border bg-secondary">
+        <Image
+          key={main}
+          src={main}
+          alt={name}
+          fill
+          className="object-cover"
+          sizes="(max-width: 768px) 100vw, 50vw"
+          priority
+        />
       </div>
-      <video
-        src={url}
-        controls
-        className="w-full"
-        preload="metadata"
-      />
+      {images.length > 1 && (
+        <div className="mt-3 grid grid-cols-5 gap-2">
+          {images.map((img, idx) => (
+            <button
+              key={`${img}-${idx}`}
+              onClick={() => setActive(idx)}
+              className={`relative aspect-square overflow-hidden rounded-lg border ${
+                idx === active ? "border-primary ring-2 ring-primary/40" : "border-border"
+              } bg-secondary`}
+              aria-label={`Show image ${idx + 1}`}
+            >
+              <img src={img} alt={`${name} preview ${idx + 1}`} className="h-full w-full object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
 export default function ProductDetailClient({ id }: { id: string }) {
-  const { products } = useProductStore()
+  const router = useRouter()
+  const { products, refreshStore } = useProductStore()
   const product = products.find((p) => p.id === id)
   const [quantity, setQuantity] = useState(1)
   const { addToCart } = useCart()
   const outOfStock = (product?.stock ?? 1) <= 0
+
+  const gallery = useMemo(() => {
+    if (!product) return [] as string[]
+    const set = new Set<string>()
+    if (product.image) set.add(product.image)
+    for (const i of product.images || []) if (i) set.add(i)
+    return Array.from(set)
+  }, [product])
 
   if (!product) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-16 text-center lg:px-8">
         <h1 className="text-3xl font-bold text-foreground">Product not found</h1>
         <p className="mt-4 text-muted-foreground">The product you&apos;re looking for doesn&apos;t exist.</p>
-        <Link
-          href="/products"
-          className="mt-6 inline-block rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground"
-        >
+        <Link href="/products" className="mt-6 inline-block rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground">
           Back to Products
         </Link>
       </div>
     )
   }
 
-  const handleAddToCart = () => {
-    for (let i = 0; i < quantity; i++) {
-      addToCart(product)
-    }
+  const handleAddAndCheckout = () => {
+    if (outOfStock) return
+    for (let i = 0; i < quantity; i++) addToCart(product)
+    router.push("/checkout")
+  }
+
+  const handleAddOnly = () => {
+    if (outOfStock) return
+    for (let i = 0; i < quantity; i++) addToCart(product)
   }
 
   const relatedProducts = products
@@ -111,45 +142,26 @@ export default function ProductDetailClient({ id }: { id: string }) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
-      <Link
-        href="/products"
-        className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
+      <Link href="/products" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
         <ArrowLeft className="h-4 w-4" />
         Back to Products
       </Link>
 
       <div className="grid gap-8 lg:grid-cols-2">
         <div>
-          <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-border bg-secondary">
-            <Image
-              src={product.image}
-              alt={product.name}
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, 50vw"
-              priority
-            />
-            {product.badge && (
-              <span className="absolute left-4 top-4 rounded-md bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground">
-                {product.badge}
-              </span>
-            )}
-          </div>
-
+          <ProductGallery images={gallery} name={product.name} />
           {product.videoUrl && <ProductVideo url={product.videoUrl} />}
         </div>
 
         <div className="flex flex-col gap-6">
           <div>
             <div className="mb-2 flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {product.brand}
-              </span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{product.brand}</span>
               {product.size && (
-                <span className="rounded bg-secondary px-2 py-1 text-xs font-medium text-muted-foreground">
-                  {product.size}
-                </span>
+                <span className="rounded bg-secondary px-2 py-1 text-xs font-medium text-muted-foreground">{product.size}</span>
+              )}
+              {product.badge && (
+                <span className="rounded bg-primary/15 px-2 py-1 text-xs font-semibold text-primary">{product.badge}</span>
               )}
             </div>
             <h1 className="text-3xl font-bold text-foreground">{product.name}</h1>
@@ -165,24 +177,20 @@ export default function ProductDetailClient({ id }: { id: string }) {
                 <Star
                   key={i}
                   className={`h-4 w-4 ${
-                    i < Math.floor(product.rating)
-                      ? "fill-foreground text-foreground"
-                      : "fill-muted text-muted"
+                    i < Math.floor(product.rating) ? "fill-yellow-500 text-yellow-500" : "fill-muted text-muted"
                   }`}
                 />
               ))}
             </div>
             <span className="text-sm text-muted-foreground">
-              {product.rating} ({product.reviews} reviews)
+              {product.rating.toFixed(1)} ({product.reviews} reviews)
             </span>
           </div>
 
           <div className="flex items-baseline gap-2">
             <span className="text-3xl font-bold text-foreground">{formatPrice(product.price)}</span>
             {product.originalPrice && (
-              <span className="text-sm text-muted-foreground line-through">
-                {formatPrice(product.originalPrice)}
-              </span>
+              <span className="text-sm text-muted-foreground line-through">{formatPrice(product.originalPrice)}</span>
             )}
             {product.originalPrice && (
               <span className="text-sm font-semibold text-green-600">
@@ -212,20 +220,22 @@ export default function ProductDetailClient({ id }: { id: string }) {
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <button
-              onClick={handleAddToCart}
+              onClick={handleAddAndCheckout}
               disabled={outOfStock}
               className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ShoppingCart className="h-5 w-5" />
-              {outOfStock ? "Out of Stock" : "Add to Cart"}
+              {outOfStock ? "Out of Stock" : "Add to Cart & Checkout"}
             </button>
-            <button className="flex items-center justify-center rounded-lg border border-border px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-secondary">
+            <button
+              onClick={handleAddOnly}
+              disabled={outOfStock}
+              className="flex items-center justify-center gap-2 rounded-lg border border-border px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
+            >
               <Heart className="h-5 w-5" />
-            </button>
-            <button className="flex items-center justify-center rounded-lg border border-border px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-secondary">
-              <Share2 className="h-5 w-5" />
+              Keep shopping
             </button>
           </div>
 
@@ -248,7 +258,7 @@ export default function ProductDetailClient({ id }: { id: string }) {
               )}
               <li className="flex justify-between">
                 <span>Rating:</span>
-                <span className="text-foreground">{product.rating} / 5</span>
+                <span className="text-foreground">{product.rating.toFixed(1)} / 5</span>
               </li>
               <li className="flex justify-between">
                 <span>Stock:</span>
@@ -258,6 +268,8 @@ export default function ProductDetailClient({ id }: { id: string }) {
           </div>
         </div>
       </div>
+
+      <ProductReviews productId={product.id} onChange={() => refreshStore()} />
 
       {relatedProducts.length > 0 && (
         <div className="mt-16 border-t border-border pt-12">

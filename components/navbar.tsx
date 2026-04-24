@@ -4,10 +4,12 @@ import Link from "next/link"
 import { useState } from "react"
 import { ShoppingCart, Search, Menu, X, Zap, Lock } from "lucide-react"
 import { useCart } from "@/lib/cart-context"
+import { useProductStore } from "@/lib/product-store"
 import { useRouter } from "next/navigation"
 
 export function Navbar() {
   const { totalItems } = useCart()
+  const { settings } = useProductStore()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const router = useRouter()
@@ -28,17 +30,22 @@ export function Navbar() {
     { href: "/contact", label: "Contact" },
   ]
 
+  const logoText = settings.logoText || "Munex Electronics"
+  const logoUrl = settings.logoUrl || ""
+
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 lg:px-8">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <Zap className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="text-lg font-bold tracking-tight text-foreground">
-            Munex<span className="text-muted-foreground">Electronics</span>
-          </span>
+          {logoUrl ? (
+            <img src={logoUrl} alt={logoText} className="h-9 w-auto rounded-lg object-contain" />
+          ) : (
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+              <Zap className="h-5 w-5 text-primary-foreground" />
+            </div>
+          )}
+          <span className="text-lg font-bold tracking-tight text-foreground">{logoText}</span>
         </Link>
 
         {/* Desktop Nav */}
