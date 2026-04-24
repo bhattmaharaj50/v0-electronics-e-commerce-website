@@ -7,6 +7,7 @@ export interface Product {
   category: string
   brand: string
   size?: string
+  color?: string
   image: string
   images?: string[]
   videoUrl?: string
@@ -25,6 +26,14 @@ export const categories = [
   { slug: "washing-machines", name: "Washing Machines", icon: "WashingMachine" },
   { slug: "cookers", name: "Cookers", icon: "Flame" },
   { slug: "chargers-accessories", name: "Chargers & Accessories", icon: "Cable" },
+  { slug: "phones", name: "Phones", icon: "Smartphone" },
+  { slug: "tablets", name: "Tablets", icon: "Tablet" },
+  { slug: "headphones", name: "Headphones", icon: "Headphones" },
+  { slug: "water-dispensers", name: "Water Dispensers", icon: "Droplets" },
+  { slug: "iron-boxes", name: "Iron Boxes", icon: "Shirt" },
+  { slug: "microwaves", name: "Microwaves", icon: "Microwave" },
+  { slug: "ovens", name: "Ovens", icon: "ChefHat" },
+  { slug: "airfryers", name: "Airfryers", icon: "Soup" },
 ]
 
 export function formatPrice(price: number): string {

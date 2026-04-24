@@ -149,6 +149,7 @@ function productFromRow(row: any): Product {
     category: row.category,
     brand: row.brand,
     size: row.size || undefined,
+    color: row.color || undefined,
     image: row.image,
     images,
     videoUrl: row.video_url || undefined,
@@ -226,6 +227,7 @@ async function setupDatabase() {
       category TEXT NOT NULL,
       brand TEXT NOT NULL DEFAULT '',
       size TEXT,
+      color TEXT,
       image TEXT NOT NULL DEFAULT '',
       images JSONB NOT NULL DEFAULT '[]'::jsonb,
       video_url TEXT,
@@ -302,6 +304,7 @@ async function setupDatabase() {
   await pool.query(`
     ALTER TABLE products ADD COLUMN IF NOT EXISTS video_url TEXT;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS images JSONB NOT NULL DEFAULT '[]'::jsonb;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS color TEXT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS pickup_location TEXT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_whatsapp_url TEXT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP;
@@ -309,14 +312,14 @@ async function setupDatabase() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS dispatched_at TIMESTAMP;
   `)
 
-  const categoryCount = await pool.query("SELECT COUNT(*)::int AS count FROM categories")
-  if (categoryCount.rows[0].count === 0) {
-    for (const category of defaultCategories) {
-      await pool.query(
-        "INSERT INTO categories (slug, name, icon) VALUES ($1, $2, $3) ON CONFLICT (slug) DO NOTHING",
-        [category.slug, category.name, category.icon]
-      )
-    }
+  // Always seed any missing default categories. Existing ones are preserved
+  // (ON CONFLICT DO NOTHING) so admin renames are kept; admins can still
+  // delete them, but they'll reappear on next boot.
+  for (const category of defaultCategories) {
+    await pool.query(
+      "INSERT INTO categories (slug, name, icon) VALUES ($1, $2, $3) ON CONFLICT (slug) DO NOTHING",
+      [category.slug, category.name, category.icon]
+    )
   }
 
   const productCount = await pool.query("SELECT COUNT(*)::int AS count FROM products")
@@ -330,9 +333,9 @@ async function setupDatabase() {
 
       await pool.query(
         `INSERT INTO products (
-          id, name, price, original_price, description, category, brand, size, image, images, video_url,
+          id, name, price, original_price, description, category, brand, size, color, image, images, video_url,
           rating, reviews, badge, featured, stock, offer_type, updated_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,NOW())
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,NOW())
         ON CONFLICT (id) DO NOTHING`,
         [
           seededProduct.id,
@@ -343,6 +346,7 @@ async function setupDatabase() {
           seededProduct.category,
           seededProduct.brand,
           seededProduct.size ?? null,
+          seededProduct.color ?? null,
           seededProduct.image,
           JSON.stringify(seededProduct.images ?? []),
           seededProduct.videoUrl ?? null,
@@ -403,9 +407,9 @@ export async function saveProduct(product: Product) {
   await ensureDatabase()
   await pool.query(
     `INSERT INTO products (
-      id, name, price, original_price, description, category, brand, size, image, images, video_url,
+      id, name, price, original_price, description, category, brand, size, color, image, images, video_url,
       rating, reviews, badge, featured, stock, offer_type, updated_at
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,NOW())
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,NOW())
     ON CONFLICT (id) DO UPDATE SET
       name = EXCLUDED.name,
       price = EXCLUDED.price,
@@ -414,6 +418,7 @@ export async function saveProduct(product: Product) {
       category = EXCLUDED.category,
       brand = EXCLUDED.brand,
       size = EXCLUDED.size,
+      color = EXCLUDED.color,
       image = EXCLUDED.image,
       images = EXCLUDED.images,
       video_url = EXCLUDED.video_url,
@@ -433,6 +438,7 @@ export async function saveProduct(product: Product) {
       product.category,
       product.brand,
       product.size ?? null,
+      product.color ?? null,
       product.image,
       JSON.stringify(product.images ?? []),
       product.videoUrl ?? null,

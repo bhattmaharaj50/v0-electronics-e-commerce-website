@@ -13,6 +13,10 @@ import {
   Gamepad2,
   Joystick,
   Cable,
+  Droplets,
+  Shirt,
+  ChefHat,
+  Soup,
 } from "lucide-react"
 import { categories } from "@/lib/products"
 
@@ -30,6 +34,10 @@ const iconMap: Record<string, React.ElementType> = {
   Gamepad2,
   Joystick,
   Cable,
+  Droplets,
+  Shirt,
+  ChefHat,
+  Soup,
 }
 
 export function CategoriesSection() {

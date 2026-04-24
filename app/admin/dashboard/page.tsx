@@ -92,6 +92,7 @@ const emptyProduct: Product = {
   category: "",
   brand: "",
   size: "",
+  color: "",
   image: "",
   images: [],
   videoUrl: "",
@@ -273,6 +274,7 @@ export default function AdminDashboardPage() {
       reviews: Number(productForm.reviews) || 0,
       stock: Number(productForm.stock) || 0,
       size: productForm.size || undefined,
+      color: productForm.color || undefined,
       badge: productForm.badge || undefined,
       offerType: productForm.offerType || "",
       videoUrl: productForm.videoUrl || undefined,
@@ -1118,7 +1120,8 @@ export default function AdminDashboardPage() {
               <div><Label>Brand *</Label><Input required value={productForm.brand} onChange={(e) => setProductForm({ ...productForm, brand: e.target.value })} /></div>
               <div><Label>Stock *</Label><Input required type="number" value={productForm.stock ?? 0} onChange={(e) => setProductForm({ ...productForm, stock: Number(e.target.value) })} /></div>
               <div><Label>Offer placement</Label><select value={productForm.offerType || ""} onChange={(e) => setProductForm({ ...productForm, offerType: e.target.value as Product["offerType"] })} className="h-10 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground">{OFFER_TYPES.map((offer) => <option key={offer.value} value={offer.value}>{offer.label}</option>)}</select></div>
-              <div><Label>Size</Label><Input value={productForm.size || ""} onChange={(e) => setProductForm({ ...productForm, size: e.target.value })} /></div>
+              <div><Label>Size / Specs</Label><Input placeholder="e.g. 128GB, 6.5 inch" value={productForm.size || ""} onChange={(e) => setProductForm({ ...productForm, size: e.target.value })} /></div>
+              <div><Label>Color</Label><Input placeholder="e.g. Black, Silver" value={productForm.color || ""} onChange={(e) => setProductForm({ ...productForm, color: e.target.value })} /></div>
               <div><Label>Badge</Label><Input value={productForm.badge || ""} onChange={(e) => setProductForm({ ...productForm, badge: e.target.value })} /></div>
               <div><Label>Rating</Label><Input type="number" step="0.1" min="0" max="5" value={productForm.rating} onChange={(e) => setProductForm({ ...productForm, rating: Number(e.target.value) })} /></div>
               <div><Label>Reviews</Label><Input type="number" value={productForm.reviews} onChange={(e) => setProductForm({ ...productForm, reviews: Number(e.target.value) })} /></div>

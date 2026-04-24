@@ -56,3 +56,9 @@ An e-commerce electronics store based in Narok, Kenya. Built with Next.js 16.2.4
 - Run: `npx next dev -H 0.0.0.0 -p 5000`
 - Build: `npm run build`
 - Deploy: Server-rendered Next.js app so backend API routes remain available
+
+## Categories
+Default categories live in `lib/products.ts` and are seeded on every boot via `ensureDatabase()` (uses `ON CONFLICT DO NOTHING`, so admin renames are preserved). Current defaults: tvs, soundbars, fridges, washing-machines, cookers, chargers-accessories, phones, tablets, headphones, water-dispensers, iron-boxes, microwaves, ovens, airfryers.
+
+## Product filters
+Products are filtered on `/products` by category, brand, size/specs, color, and price range. The `color` field is a `TEXT` column on `products` (added via `ALTER TABLE … ADD COLUMN IF NOT EXISTS color`) and is editable in the admin product form. The "Size / Specs" label adapts per category (Specs/Storage for phones/tablets, Screen Size for TVs, Capacity for fridges/water dispensers).
