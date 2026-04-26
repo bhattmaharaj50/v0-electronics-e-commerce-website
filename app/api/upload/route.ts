@@ -4,7 +4,7 @@ import path from "path"
 import { put } from "@vercel/blob"
 
 export const runtime = "nodejs"
-export const maxDuration = 600
+export const maxDuration = 60
 export const dynamic = "force-dynamic"
 
 const MAX_SIZE = 1024 * 1024 * 1024 // 1 GB
