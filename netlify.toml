@@ -1,6 +1,5 @@
 [build]
-  command = "echo 'Using pre-built static files'"
-  publish = "out"
+  command = "npm run build"
 
 [build.environment]
   NODE_VERSION = "20"
