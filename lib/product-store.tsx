@@ -42,6 +42,8 @@ export interface SiteSettings {
   businessName: string
   heroGalleryImages: string[]
   heroGalleryVideos: string[]
+  brandLogos: string[]
+  brandsTitle: string
 }
 
 interface ProductStoreContextType {
@@ -81,6 +83,8 @@ export const defaultSettings: SiteSettings = {
   businessName: "Munex Electronics",
   heroGalleryImages: [],
   heroGalleryVideos: [],
+  brandLogos: [],
+  brandsTitle: "Trusted Brands We Stock",
 }
 
 function normalizeStringArray(value: unknown): string[] {
@@ -107,6 +111,7 @@ function normalizeSettings(raw: Record<string, unknown> | undefined): SiteSettin
     ...(raw as Partial<SiteSettings>),
     heroGalleryImages: normalizeStringArray(raw?.heroGalleryImages ?? []),
     heroGalleryVideos: normalizeStringArray(raw?.heroGalleryVideos ?? []),
+    brandLogos: normalizeStringArray(raw?.brandLogos ?? []),
   }
 }
 
@@ -231,6 +236,9 @@ export function ProductStoreProvider({ children }: { children: ReactNode }) {
     }
     if (Array.isArray(updates.heroGalleryVideos)) {
       payload.heroGalleryVideos = JSON.stringify(updates.heroGalleryVideos)
+    }
+    if (Array.isArray(updates.brandLogos)) {
+      payload.brandLogos = JSON.stringify(updates.brandLogos)
     }
     const data = await requestAdminAction("saveSettings", { settings: payload })
     applyData(data)

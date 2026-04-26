@@ -2,6 +2,7 @@ import { HeroSection } from "@/components/home/hero-section"
 import { AdVideoSection } from "@/components/home/ad-video-section"
 import { HomepageVideosSection } from "@/components/home/homepage-videos-section"
 import { CategoriesSection } from "@/components/home/categories-section"
+import { FeaturedBrands } from "@/components/home/featured-brands"
 import { FeaturedProducts } from "@/components/home/featured-products"
 import { DealsSection } from "@/components/home/deals-section"
 import { VideosSection } from "@/components/home/videos-section"
@@ -15,6 +16,7 @@ export default function HomePage() {
       <AdVideoSection />
       <HomepageVideosSection />
       <CategoriesSection />
+      <FeaturedBrands />
       <FeaturedProducts />
       <DealsSection />
       <VideosSection />

@@ -182,6 +182,8 @@ export default function AdminDashboardPage() {
   const [uploadingHeroGalleryVideo, setUploadingHeroGalleryVideo] = useState(false)
   const [newGalleryImageUrl, setNewGalleryImageUrl] = useState("")
   const [newGalleryVideoUrl, setNewGalleryVideoUrl] = useState("")
+  const [uploadingBrandLogo, setUploadingBrandLogo] = useState(false)
+  const [newBrandLogoUrl, setNewBrandLogoUrl] = useState("")
   const [extraImageUrl, setExtraImageUrl] = useState("")
   const [pickupInputs, setPickupInputs] = useState<Record<string, string>>({})
   const [editingReviewId, setEditingReviewId] = useState<number | null>(null)
@@ -628,6 +630,44 @@ export default function AdminDashboardPage() {
     if (target < 0 || target >= arr.length) return
     ;[arr[index], arr[target]] = [arr[target], arr[index]]
     await persistSettingField("heroGalleryVideos", arr, "Video order")
+  }
+
+  async function addBrandLogo(url: string) {
+    const trimmed = url.trim()
+    if (!trimmed) return
+    const next = [...(settingsForm.brandLogos || []), trimmed]
+    await persistSettingField("brandLogos", next, "Brand logo")
+    setNewBrandLogoUrl("")
+  }
+
+  async function uploadBrandLogoFiles(files: FileList) {
+    setUploadingBrandLogo(true)
+    try {
+      const uploads: string[] = []
+      for (const file of Array.from(files)) {
+        const url = await uploadFile(file)
+        uploads.push(url)
+      }
+      const next = [...(settingsForm.brandLogos || []), ...uploads]
+      await persistSettingField("brandLogos", next, `${uploads.length} brand logo${uploads.length === 1 ? "" : "s"}`)
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Upload failed", "error")
+    } finally {
+      setUploadingBrandLogo(false)
+    }
+  }
+
+  async function removeBrandLogo(index: number) {
+    const next = (settingsForm.brandLogos || []).filter((_, i) => i !== index)
+    await persistSettingField("brandLogos", next, "Brand logo removed")
+  }
+
+  async function moveBrandLogo(index: number, dir: -1 | 1) {
+    const arr = [...(settingsForm.brandLogos || [])]
+    const target = index + dir
+    if (target < 0 || target >= arr.length) return
+    ;[arr[index], arr[target]] = [arr[target], arr[index]]
+    await persistSettingField("brandLogos", arr, "Brand order")
   }
 
   const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
@@ -1219,6 +1259,69 @@ export default function AdminDashboardPage() {
                       <button type="button" onClick={() => removeHeroGalleryVideo(i)} className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700">
                         <X className="inline h-3 w-3" />
                       </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-xl border border-border bg-card p-5">
+              <h3 className="mb-1 text-base font-bold text-foreground">Featured Brands Carousel</h3>
+              <p className="mb-3 text-xs text-muted-foreground">Upload brand logos (Samsung, LG, Sony, Hisense, etc.) to display in a scrolling carousel on the homepage. Add 4+ for an auto-scrolling marquee. Saves instantly.</p>
+              <div className="mb-3">
+                <Label>Section title</Label>
+                <Input
+                  value={settingsForm.brandsTitle || ""}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, brandsTitle: e.target.value })}
+                  onBlur={(e) => persistSettingField("brandsTitle", e.target.value, "Brands section title")}
+                  placeholder="Trusted Brands We Stock"
+                />
+              </div>
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <Input
+                  value={newBrandLogoUrl}
+                  onChange={(e) => setNewBrandLogoUrl(e.target.value)}
+                  placeholder="https://example.com/brand-logo.png"
+                  className="flex-1 min-w-[260px]"
+                />
+                <button
+                  type="button"
+                  onClick={() => addBrandLogo(newBrandLogoUrl)}
+                  className="rounded-lg border border-border px-3 py-2 text-xs font-medium hover:bg-secondary"
+                >
+                  Add URL
+                </button>
+                <label className={`flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary ${uploadingBrandLogo ? "opacity-50 pointer-events-none" : ""}`}>
+                  <Upload className="h-3.5 w-3.5" />
+                  {uploadingBrandLogo ? "Uploading…" : "Upload logos"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files; if (f && f.length) uploadBrandLogoFiles(f) }}
+                  />
+                </label>
+              </div>
+              {(settingsForm.brandLogos || []).length === 0 ? (
+                <p className="rounded-lg border border-dashed border-border bg-secondary/40 p-4 text-center text-xs text-muted-foreground">
+                  No brand logos yet. Upload logos to feature trusted brands on your homepage.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                  {(settingsForm.brandLogos || []).map((url, i) => (
+                    <div key={`${url}-${i}`} className="group relative overflow-hidden rounded-lg border border-border bg-white p-3">
+                      <img src={url} alt={`Brand ${i + 1}`} className="aspect-video w-full object-contain" />
+                      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/80 to-transparent p-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+                        <div className="flex gap-1">
+                          <button type="button" onClick={() => moveBrandLogo(i, -1)} disabled={i === 0} className="rounded bg-background/90 px-1.5 py-0.5 text-xs font-bold disabled:opacity-30">←</button>
+                          <button type="button" onClick={() => moveBrandLogo(i, 1)} disabled={i === (settingsForm.brandLogos || []).length - 1} className="rounded bg-background/90 px-1.5 py-0.5 text-xs font-bold disabled:opacity-30">→</button>
+                        </div>
+                        <button type="button" onClick={() => removeBrandLogo(i)} className="rounded bg-red-600 px-1.5 py-0.5 text-xs font-bold text-white hover:bg-red-700">
+                          <X className="inline h-3 w-3" />
+                        </button>
+                      </div>
+                      <div className="absolute left-1 top-1 rounded bg-foreground/80 px-1.5 py-0.5 text-[10px] font-bold text-background">#{i + 1}</div>
                     </div>
                   ))}
                 </div>
