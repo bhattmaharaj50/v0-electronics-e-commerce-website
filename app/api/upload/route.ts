@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
-import { writeFile, mkdir } from "fs/promises"
 import path from "path"
-import { put } from "@vercel/blob"
+import { uploadPublicObject } from "@/lib/object-storage"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
@@ -40,24 +39,16 @@ export async function POST(request: Request) {
     const ext = path.extname(file.name).toLowerCase() || (file.type.startsWith("video/") ? ".mp4" : ".jpg")
     const safeName = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`
 
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const blob = await put(`uploads/${safeName}`, file, {
-        access: "public",
-        contentType: file.type,
-        token: process.env.BLOB_READ_WRITE_TOKEN,
-      })
-      return NextResponse.json({ url: blob.url })
-    }
-
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    const uploadsDir = path.join(process.cwd(), "public", "uploads")
 
-    await mkdir(uploadsDir, { recursive: true })
-    await writeFile(path.join(uploadsDir, safeName), buffer)
+    const { publicUrl } = await uploadPublicObject({
+      buffer,
+      contentType: file.type,
+      filename: safeName,
+    })
 
-    const url = `/uploads/${safeName}`
-    return NextResponse.json({ url })
+    return NextResponse.json({ url: publicUrl })
   } catch (error) {
     console.error("Upload error:", error)
     const message = error instanceof Error ? error.message : "Upload failed"
