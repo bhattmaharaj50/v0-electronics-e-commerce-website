@@ -34,11 +34,11 @@ function getPriceRange(products: StoreProduct[], category: string): { min: numbe
 export function ProductsContent() {
   const { products, categories } = useProductStore()
   const searchParams = useSearchParams()
-  const initialCategory = searchParams.get("category") || ""
+  const urlCategory = searchParams.get("category") || ""
   const searchQuery = searchParams.get("search") || ""
   const showDeals = searchParams.get("deals") === "true"
 
-  const [selectedCategory, setSelectedCategory] = useState(initialCategory)
+  const [selectedCategory, setSelectedCategory] = useState(urlCategory)
   const [selectedBrand, setSelectedBrand] = useState("")
   const [selectedSize, setSelectedSize] = useState("")
   const [selectedColor, setSelectedColor] = useState("")
@@ -46,6 +46,17 @@ export function ProductsContent() {
   const [maxPrice, setMaxPrice] = useState<string>("")
   const [sortBy, setSortBy] = useState("default")
   const [filtersOpen, setFiltersOpen] = useState(false)
+
+  // Keep the selected category in sync with the URL so clicking a category link
+  // from the navbar / quick-bar while already on /products updates the view.
+  // Also clears dependent filters that may not be valid for the new category.
+  useEffect(() => {
+    setSelectedCategory(urlCategory)
+    setSelectedBrand("")
+    setSelectedSize("")
+    setSelectedColor("")
+    setFiltersOpen(false)
+  }, [urlCategory])
 
   const availableBrands = useMemo(
     () => getBrandsByCategory(products, selectedCategory),
