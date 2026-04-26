@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { writeFile, mkdir } from "fs/promises"
 import path from "path"
+import { put } from "@vercel/blob"
 
 export const runtime = "nodejs"
 export const maxDuration = 600
@@ -36,11 +37,20 @@ export async function POST(request: Request) {
       )
     }
 
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-
     const ext = path.extname(file.name).toLowerCase() || (file.type.startsWith("video/") ? ".mp4" : ".jpg")
     const safeName = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`
+
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const blob = await put(`uploads/${safeName}`, file, {
+        access: "public",
+        contentType: file.type,
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      })
+      return NextResponse.json({ url: blob.url })
+    }
+
+    const bytes = await file.arrayBuffer()
+    const buffer = Buffer.from(bytes)
     const uploadsDir = path.join(process.cwd(), "public", "uploads")
 
     await mkdir(uploadsDir, { recursive: true })
