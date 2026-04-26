@@ -10,6 +10,16 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
+    remotePatterns: [
+      { protocol: "https", hostname: "**" },
+      { protocol: "http", hostname: "**" },
+    ],
+  },
+  experimental: {
+    // Allow large file uploads (up to 1GB) via Server Actions / Route Handlers
+    serverActions: {
+      bodySizeLimit: "1024mb",
+    },
   },
   allowedDevOrigins: [
     'http://localhost:5000',

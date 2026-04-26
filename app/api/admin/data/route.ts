@@ -16,9 +16,18 @@ import {
   updateOrderStatus,
 } from "@/lib/db"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+  Pragma: "no-cache",
+  Expires: "0",
+} as const
+
 export async function GET() {
   try {
-    return NextResponse.json(await getAdminData())
+    return NextResponse.json(await getAdminData(), { headers: NO_STORE_HEADERS })
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: "Unable to load admin data" }, { status: 500 })
@@ -54,7 +63,7 @@ export async function POST(request: Request) {
     }
     else return NextResponse.json({ error: "Unknown admin action" }, { status: 400 })
 
-    return NextResponse.json(await getAdminData())
+    return NextResponse.json(await getAdminData(), { headers: NO_STORE_HEADERS })
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: error instanceof Error ? error.message : "Admin action failed" }, { status: 500 })

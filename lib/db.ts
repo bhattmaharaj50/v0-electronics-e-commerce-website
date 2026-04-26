@@ -24,6 +24,8 @@ export interface SiteSettings {
   heroAdSubtitle: string
   pickupLocation: string
   businessName: string
+  heroGalleryImages: string
+  heroGalleryVideos: string
 }
 
 export interface OrderRecord {
@@ -110,6 +112,8 @@ const defaultSettings: SiteSettings = {
   heroAdSubtitle: "Watch our latest product showcase",
   pickupLocation: "Nairobi: Electronics House, Luthuli Street, Shop G7  •  Narok: Mosque Road",
   businessName: "Munex Electronics",
+  heroGalleryImages: "[]",
+  heroGalleryVideos: "[]",
 }
 
 const globalForDb = globalThis as unknown as { munexPool?: Pool; munexReady?: Promise<void> }

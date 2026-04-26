@@ -52,8 +52,8 @@ export default function CheckoutPage() {
     let cleanMpesaCode = ""
     if (paymentMethod === "mpesa") {
       cleanMpesaCode = (formData.mpesaCode || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "")
-      if (cleanMpesaCode.length < 8 || cleanMpesaCode.length > 12) {
-        setOrderError("Please enter your M-Pesa transaction code (8-12 letters/numbers from your SMS, e.g. QHJ32ABC7K).")
+      if (cleanMpesaCode.length < 6 || cleanMpesaCode.length > 15) {
+        setOrderError("Please enter your M-Pesa transaction code from the confirmation SMS (e.g. QHJ32ABC7K).")
         return
       }
       setFormData((prev) => ({ ...prev, mpesaCode: cleanMpesaCode }))
@@ -546,7 +546,7 @@ export default function CheckoutPage() {
                       className="mb-1.5 block text-xs font-medium text-muted-foreground"
                     >
                       M-Pesa Transaction Code{" "}
-                      <span className="text-foreground">(e.g. QHJ32ABC7)</span>
+                      <span className="text-foreground">(e.g. QHJ32ABC7K)</span>
                     </label>
                     <input
                       id="mpesaCode"
@@ -560,16 +560,16 @@ export default function CheckoutPage() {
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
-                          mpesaCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12),
+                          mpesaCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 15),
                         }))
                       }
                       placeholder="e.g. QHJ32ABC7K"
-                      maxLength={12}
-                      title="8-12 letters and numbers from your M-Pesa SMS"
+                      maxLength={15}
+                      title="Letters and numbers from your M-Pesa confirmation SMS"
                       className="h-11 w-full rounded-lg border border-border bg-background px-3 font-mono text-sm tracking-widest text-foreground placeholder:font-sans placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     />
                     <p className="mt-2 text-xs text-muted-foreground">
-                      The transaction code is in the SMS M-Pesa sends after every successful payment (8-12 letters/numbers).
+                      The transaction code is in the SMS M-Pesa sends after every successful payment (letters and numbers, usually 10 characters).
                     </p>
                   </div>
                 </div>

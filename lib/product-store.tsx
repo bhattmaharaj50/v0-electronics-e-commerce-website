@@ -6,6 +6,7 @@ import {
   useState,
   useCallback,
   useEffect,
+  useRef,
   type ReactNode,
 } from "react"
 import {
@@ -39,6 +40,8 @@ export interface SiteSettings {
   heroAdSubtitle: string
   pickupLocation: string
   businessName: string
+  heroGalleryImages: string[]
+  heroGalleryVideos: string[]
 }
 
 interface ProductStoreContextType {
@@ -76,6 +79,35 @@ export const defaultSettings: SiteSettings = {
   heroAdSubtitle: "Watch our latest product showcase",
   pickupLocation: "Nairobi: Electronics House, Luthuli Street, Shop G7  •  Narok: Mosque Road",
   businessName: "Munex Electronics",
+  heroGalleryImages: [],
+  heroGalleryVideos: [],
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    try {
+      const parsed = JSON.parse(value)
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+      }
+    } catch {
+      // Fallback: comma-separated list
+      return value.split(/[\n,]+/).map((part) => part.trim()).filter(Boolean)
+    }
+  }
+  return []
+}
+
+function normalizeSettings(raw: Record<string, unknown> | undefined): SiteSettings {
+  return {
+    ...defaultSettings,
+    ...(raw as Partial<SiteSettings>),
+    heroGalleryImages: normalizeStringArray(raw?.heroGalleryImages ?? []),
+    heroGalleryVideos: normalizeStringArray(raw?.heroGalleryVideos ?? []),
+  }
 }
 
 async function requestAdminAction(action: string, payload: Record<string, unknown>) {
@@ -100,11 +132,12 @@ export function ProductStoreProvider({ children }: { children: ReactNode }) {
   const [categories, setCategories] = useState<Category[]>(defaultCategories)
   const [settings, setSettings] = useState<SiteSettings>(defaultSettings)
   const [loading, setLoading] = useState(true)
+  const lastRefreshRef = useRef<number>(0)
 
-  const applyData = useCallback((data: { products?: Product[]; categories?: Category[]; settings?: SiteSettings }) => {
+  const applyData = useCallback((data: { products?: Product[]; categories?: Category[]; settings?: Record<string, unknown> }) => {
     if (data.products) setProducts(data.products)
     if (data.categories) setCategories(data.categories)
-    if (data.settings) setSettings({ ...defaultSettings, ...data.settings })
+    if (data.settings) setSettings(normalizeSettings(data.settings))
   }, [])
 
   const refreshStore = useCallback(async () => {
@@ -113,6 +146,7 @@ export function ProductStoreProvider({ children }: { children: ReactNode }) {
       const response = await fetch("/api/store", { cache: "no-store" })
       if (!response.ok) throw new Error("Store data failed to load")
       applyData(await response.json())
+      lastRefreshRef.current = Date.now()
     } finally {
       setLoading(false)
     }
@@ -123,6 +157,33 @@ export function ProductStoreProvider({ children }: { children: ReactNode }) {
       console.error(error)
       setLoading(false)
     })
+  }, [refreshStore])
+
+  // Auto-refresh when the page becomes visible again or window regains focus,
+  // so the homepage / phone view picks up admin changes without a hard reload.
+  useEffect(() => {
+    const MIN_REFRESH_INTERVAL = 4000
+
+    const maybeRefresh = () => {
+      if (Date.now() - lastRefreshRef.current < MIN_REFRESH_INTERVAL) return
+      refreshStore().catch(() => {})
+    }
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") maybeRefresh()
+    }
+
+    window.addEventListener("focus", maybeRefresh)
+    document.addEventListener("visibilitychange", onVisibility)
+
+    // Light polling so changes appear within a minute even if the tab stays focused.
+    const interval = window.setInterval(maybeRefresh, 60_000)
+
+    return () => {
+      window.removeEventListener("focus", maybeRefresh)
+      document.removeEventListener("visibilitychange", onVisibility)
+      window.clearInterval(interval)
+    }
   }, [refreshStore])
 
   const addProduct = useCallback(async (product: Product) => {
@@ -162,8 +223,16 @@ export function ProductStoreProvider({ children }: { children: ReactNode }) {
   }, [applyData])
 
   const updateSettings = useCallback(async (updates: Partial<SiteSettings>) => {
-    setSettings((prev) => ({ ...prev, ...updates }))
-    const data = await requestAdminAction("saveSettings", { settings: updates })
+    setSettings((prev) => ({ ...prev, ...(updates as Partial<SiteSettings>) }))
+    // The server stores arrays as JSON strings; serialise array updates here.
+    const payload: Record<string, unknown> = { ...updates }
+    if (Array.isArray(updates.heroGalleryImages)) {
+      payload.heroGalleryImages = JSON.stringify(updates.heroGalleryImages)
+    }
+    if (Array.isArray(updates.heroGalleryVideos)) {
+      payload.heroGalleryVideos = JSON.stringify(updates.heroGalleryVideos)
+    }
+    const data = await requestAdminAction("saveSettings", { settings: payload })
     applyData(data)
   }, [applyData])
 

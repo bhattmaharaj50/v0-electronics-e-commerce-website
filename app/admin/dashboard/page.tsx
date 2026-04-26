@@ -161,7 +161,7 @@ export default function AdminDashboardPage() {
   const [allReviews, setAllReviews] = useState<ReviewItem[]>([])
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
   const [search, setSearch] = useState("")
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(null)
   const [productFormOpen, setProductFormOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [productForm, setProductForm] = useState<Product>(emptyProduct)
@@ -178,6 +178,10 @@ export default function AdminDashboardPage() {
   const [uploadingHeroImage, setUploadingHeroImage] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [uploadingHeroVideo, setUploadingHeroVideo] = useState(false)
+  const [uploadingHeroGalleryImage, setUploadingHeroGalleryImage] = useState(false)
+  const [uploadingHeroGalleryVideo, setUploadingHeroGalleryVideo] = useState(false)
+  const [newGalleryImageUrl, setNewGalleryImageUrl] = useState("")
+  const [newGalleryVideoUrl, setNewGalleryVideoUrl] = useState("")
   const [extraImageUrl, setExtraImageUrl] = useState("")
   const [pickupInputs, setPickupInputs] = useState<Record<string, string>>({})
   const [editingReviewId, setEditingReviewId] = useState<number | null>(null)
@@ -222,9 +226,10 @@ export default function AdminDashboardPage() {
     setAnalytics(data.analytics)
   }
 
-  function showToast(message: string) {
-    setToast(message)
-    setTimeout(() => setToast(null), 3000)
+  function showToast(message: string, tone: "success" | "error" = "success") {
+    setToast({ message, tone })
+    const duration = tone === "error" ? 6000 : 4000
+    setTimeout(() => setToast(null), duration)
   }
 
   function logout() {
@@ -281,15 +286,25 @@ export default function AdminDashboardPage() {
       images: (productForm.images || []).filter(Boolean),
     }
     if (!product.id || !product.name || !product.category || !product.brand || !product.image) {
-      showToast("Please fill all required product fields")
+      const missing: string[] = []
+      if (!product.name) missing.push("name")
+      if (!product.category) missing.push("category")
+      if (!product.brand) missing.push("brand")
+      if (!product.image) missing.push("main image")
+      showToast(`Missing required fields: ${missing.join(", ")}`, "error")
       return
     }
 
-    if (editingProduct) await updateProduct(product)
-    else await addProduct(product)
-    setProductFormOpen(false)
-    await refreshStore()
-    showToast(editingProduct ? "Product updated" : "Product added")
+    try {
+      const wasEditing = Boolean(editingProduct)
+      if (wasEditing) await updateProduct(product)
+      else await addProduct(product)
+      setProductFormOpen(false)
+      await refreshStore()
+      showToast(wasEditing ? `✓ "${product.name}" updated successfully` : `✓ "${product.name}" added successfully — now live on your store`)
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Failed to save product", "error")
+    }
   }
 
   async function removeProduct(id: string) {
@@ -386,8 +401,13 @@ export default function AdminDashboardPage() {
 
   async function saveSiteSettings(e: React.FormEvent) {
     e.preventDefault()
-    await updateSettings(settingsForm)
-    showToast("Website settings updated")
+    try {
+      await updateSettings(settingsForm)
+      await refreshStore()
+      showToast("✓ Homepage & site settings saved — changes are now live")
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Failed to save settings", "error")
+    }
   }
 
   async function changeOrderStatus(orderNumber: string, status: string) {
@@ -518,12 +538,96 @@ export default function AdminDashboardPage() {
       const key = kind === "logo" ? "logoUrl" : kind === "heroImage" ? "heroImageUrl" : "heroAdVideoUrl"
       setSettingsForm((prev) => ({ ...prev, [key]: url }))
       await updateSettings({ [key]: url } as Partial<SiteSettings>)
-      showToast(`${kind === "logo" ? "Logo" : kind === "heroImage" ? "Hero image" : "Hero video"} updated`)
+      await refreshStore()
+      showToast(`✓ ${kind === "logo" ? "Logo" : kind === "heroImage" ? "Hero image" : "Hero video"} uploaded — now showing on your homepage`)
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Upload failed")
+      showToast(err instanceof Error ? err.message : "Upload failed", "error")
     } finally {
       setter(false)
     }
+  }
+
+  async function persistSettingField(key: keyof SiteSettings, value: unknown, label: string) {
+    try {
+      setSettingsForm((prev) => ({ ...prev, [key]: value as never }))
+      await updateSettings({ [key]: value } as Partial<SiteSettings>)
+      await refreshStore()
+      showToast(`✓ ${label} saved — live on your homepage`)
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : `Failed to save ${label}`, "error")
+    }
+  }
+
+  async function addHeroGalleryImage(url: string) {
+    const trimmed = url.trim()
+    if (!trimmed) return
+    const next = [...(settingsForm.heroGalleryImages || []), trimmed]
+    await persistSettingField("heroGalleryImages", next, "Homepage gallery image")
+    setNewGalleryImageUrl("")
+  }
+
+  async function uploadHeroGalleryFiles(files: FileList) {
+    setUploadingHeroGalleryImage(true)
+    try {
+      const uploads: string[] = []
+      for (const file of Array.from(files)) {
+        const url = await uploadFile(file)
+        uploads.push(url)
+      }
+      const next = [...(settingsForm.heroGalleryImages || []), ...uploads]
+      await persistSettingField("heroGalleryImages", next, `${uploads.length} homepage image${uploads.length === 1 ? "" : "s"}`)
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Upload failed", "error")
+    } finally {
+      setUploadingHeroGalleryImage(false)
+    }
+  }
+
+  async function removeHeroGalleryImage(index: number) {
+    const next = (settingsForm.heroGalleryImages || []).filter((_, i) => i !== index)
+    await persistSettingField("heroGalleryImages", next, "Homepage gallery image removed")
+  }
+
+  async function moveHeroGalleryImage(index: number, dir: -1 | 1) {
+    const arr = [...(settingsForm.heroGalleryImages || [])]
+    const target = index + dir
+    if (target < 0 || target >= arr.length) return
+    ;[arr[index], arr[target]] = [arr[target], arr[index]]
+    await persistSettingField("heroGalleryImages", arr, "Image order")
+  }
+
+  async function addHeroGalleryVideo(url: string) {
+    const trimmed = url.trim()
+    if (!trimmed) return
+    const next = [...(settingsForm.heroGalleryVideos || []), trimmed]
+    await persistSettingField("heroGalleryVideos", next, "Homepage video")
+    setNewGalleryVideoUrl("")
+  }
+
+  async function uploadHeroGalleryVideoFile(file: File) {
+    setUploadingHeroGalleryVideo(true)
+    try {
+      const url = await uploadFile(file)
+      const next = [...(settingsForm.heroGalleryVideos || []), url]
+      await persistSettingField("heroGalleryVideos", next, "Homepage video uploaded")
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Upload failed", "error")
+    } finally {
+      setUploadingHeroGalleryVideo(false)
+    }
+  }
+
+  async function removeHeroGalleryVideo(index: number) {
+    const next = (settingsForm.heroGalleryVideos || []).filter((_, i) => i !== index)
+    await persistSettingField("heroGalleryVideos", next, "Homepage video removed")
+  }
+
+  async function moveHeroGalleryVideo(index: number, dir: -1 | 1) {
+    const arr = [...(settingsForm.heroGalleryVideos || [])]
+    const target = index + dir
+    if (target < 0 || target >= arr.length) return
+    ;[arr[index], arr[target]] = [arr[target], arr[index]]
+    await persistSettingField("heroGalleryVideos", arr, "Video order")
   }
 
   const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
@@ -540,9 +644,17 @@ export default function AdminDashboardPage() {
   return (
     <div className="min-h-screen bg-background">
       {toast && (
-        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-xl bg-foreground px-4 py-3 text-sm font-medium text-background shadow-lg">
-          <Check className="h-4 w-4 text-green-400" />
-          {toast}
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed left-1/2 top-4 z-[100] flex max-w-md -translate-x-1/2 items-center gap-3 rounded-xl px-5 py-3.5 text-sm font-semibold shadow-2xl ring-1 transition-all ${
+            toast.tone === "error"
+              ? "bg-red-600 text-white ring-red-400"
+              : "bg-green-600 text-white ring-green-400"
+          }`}
+        >
+          {toast.tone === "error" ? <X className="h-5 w-5 shrink-0" /> : <Check className="h-5 w-5 shrink-0" />}
+          <span>{toast.message}</span>
         </div>
       )}
 
@@ -988,16 +1100,129 @@ export default function AdminDashboardPage() {
                   <Input value={settingsForm.heroSubtitle} onChange={(e) => setSettingsForm({ ...settingsForm, heroSubtitle: e.target.value })} />
                 </div>
                 <div className="md:col-span-2">
-                  <Label>Hero background image</Label>
+                  <Label>Hero background image (main slide)</Label>
                   <div className="flex flex-wrap items-center gap-3">
-                    <Input value={settingsForm.heroImageUrl} onChange={(e) => setSettingsForm({ ...settingsForm, heroImageUrl: e.target.value })} placeholder="https://... or upload" />
+                    <Input
+                      value={settingsForm.heroImageUrl}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, heroImageUrl: e.target.value })}
+                      onBlur={(e) => {
+                        const val = e.target.value.trim()
+                        if (val !== settings.heroImageUrl) persistSettingField("heroImageUrl", val, "Hero image URL")
+                      }}
+                      placeholder="https://... or upload"
+                    />
                     <label className={`flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary ${uploadingHeroImage ? "opacity-50 pointer-events-none" : ""}`}>
                       <ImageIcon className="h-3.5 w-3.5" />{uploadingHeroImage ? "Uploading…" : "Upload image"}
                       <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadHomepageAsset(f, "heroImage") }} />
                     </label>
                   </div>
                   {settingsForm.heroImageUrl && <img src={settingsForm.heroImageUrl} alt="hero preview" className="mt-2 h-32 w-full rounded-lg border border-border object-cover" />}
+                  <p className="mt-1 text-xs text-muted-foreground">URL changes save automatically when you click outside the box.</p>
                 </div>
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-border bg-card p-5">
+              <h3 className="mb-1 text-base font-bold text-foreground">Homepage Hero Gallery Images</h3>
+              <p className="mb-3 text-xs text-muted-foreground">Add multiple images to rotate as a slideshow on your homepage hero. Each image saves automatically.</p>
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <Input
+                  value={newGalleryImageUrl}
+                  onChange={(e) => setNewGalleryImageUrl(e.target.value)}
+                  placeholder="https://image-url.jpg"
+                  className="flex-1 min-w-[220px]"
+                />
+                <button
+                  type="button"
+                  onClick={() => addHeroGalleryImage(newGalleryImageUrl)}
+                  className="rounded-lg border border-border px-3 py-2 text-xs font-medium hover:bg-secondary"
+                >
+                  Add URL
+                </button>
+                <label className={`flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary ${uploadingHeroGalleryImage ? "opacity-50 pointer-events-none" : ""}`}>
+                  <Upload className="h-3.5 w-3.5" />
+                  {uploadingHeroGalleryImage ? "Uploading…" : "Upload images"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files; if (f && f.length) uploadHeroGalleryFiles(f) }}
+                  />
+                </label>
+              </div>
+              {(settingsForm.heroGalleryImages || []).length === 0 ? (
+                <p className="rounded-lg border border-dashed border-border bg-secondary/40 p-4 text-center text-xs text-muted-foreground">
+                  No gallery images yet. Add your first image above to start a homepage slideshow.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                  {(settingsForm.heroGalleryImages || []).map((url, i) => (
+                    <div key={`${url}-${i}`} className="group relative overflow-hidden rounded-lg border border-border bg-secondary">
+                      <img src={url} alt={`Gallery ${i + 1}`} className="aspect-video w-full object-cover" />
+                      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/80 to-transparent p-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+                        <div className="flex gap-1">
+                          <button type="button" onClick={() => moveHeroGalleryImage(i, -1)} disabled={i === 0} className="rounded bg-background/90 px-1.5 py-0.5 text-xs font-bold disabled:opacity-30">←</button>
+                          <button type="button" onClick={() => moveHeroGalleryImage(i, 1)} disabled={i === (settingsForm.heroGalleryImages || []).length - 1} className="rounded bg-background/90 px-1.5 py-0.5 text-xs font-bold disabled:opacity-30">→</button>
+                        </div>
+                        <button type="button" onClick={() => removeHeroGalleryImage(i)} className="rounded bg-red-600 px-1.5 py-0.5 text-xs font-bold text-white hover:bg-red-700">
+                          <X className="inline h-3 w-3" />
+                        </button>
+                      </div>
+                      <div className="absolute left-1 top-1 rounded bg-foreground/80 px-1.5 py-0.5 text-[10px] font-bold text-background">#{i + 1}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-xl border border-border bg-card p-5">
+              <h3 className="mb-1 text-base font-bold text-foreground">Homepage Videos (multiple)</h3>
+              <p className="mb-3 text-xs text-muted-foreground">Add multiple YouTube links or upload videos to display in the "Watch More" section. Saves instantly.</p>
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <Input
+                  value={newGalleryVideoUrl}
+                  onChange={(e) => setNewGalleryVideoUrl(e.target.value)}
+                  placeholder="https://youtube.com/watch?v=... or https://video.mp4"
+                  className="flex-1 min-w-[260px]"
+                />
+                <button
+                  type="button"
+                  onClick={() => addHeroGalleryVideo(newGalleryVideoUrl)}
+                  className="rounded-lg border border-border px-3 py-2 text-xs font-medium hover:bg-secondary"
+                >
+                  Add YouTube / URL
+                </button>
+                <label className={`flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary ${uploadingHeroGalleryVideo ? "opacity-50 pointer-events-none" : ""}`}>
+                  <Video className="h-3.5 w-3.5" />
+                  {uploadingHeroGalleryVideo ? "Uploading…" : "Upload video"}
+                  <input
+                    type="file"
+                    accept="video/*"
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadHeroGalleryVideoFile(f) }}
+                  />
+                </label>
+              </div>
+              {(settingsForm.heroGalleryVideos || []).length === 0 ? (
+                <p className="rounded-lg border border-dashed border-border bg-secondary/40 p-4 text-center text-xs text-muted-foreground">
+                  No featured videos yet. Add a YouTube link or upload to feature on your homepage.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {(settingsForm.heroGalleryVideos || []).map((url, i) => (
+                    <div key={`${url}-${i}`} className="flex items-center gap-2 rounded-lg border border-border bg-secondary/40 p-2">
+                      <div className="rounded bg-foreground px-2 py-1 text-[10px] font-bold text-background">#{i + 1}</div>
+                      <div className="flex-1 truncate text-xs text-foreground" title={url}>{url}</div>
+                      <button type="button" onClick={() => moveHeroGalleryVideo(i, -1)} disabled={i === 0} className="rounded border border-border px-2 py-1 text-xs disabled:opacity-30">↑</button>
+                      <button type="button" onClick={() => moveHeroGalleryVideo(i, 1)} disabled={i === (settingsForm.heroGalleryVideos || []).length - 1} className="rounded border border-border px-2 py-1 text-xs disabled:opacity-30">↓</button>
+                      <button type="button" onClick={() => removeHeroGalleryVideo(i)} className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700">
+                        <X className="inline h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               </div>
             </section>
 

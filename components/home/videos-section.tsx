@@ -3,12 +3,8 @@
 import { useState } from "react"
 import { Play, ArrowRight } from "lucide-react"
 import { useProductStore } from "@/lib/product-store"
+import { getYouTubeId } from "@/lib/video-utils"
 import Link from "next/link"
-
-function getYouTubeId(url: string): string | null {
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/\s]{11})/)
-  return match ? match[1] : null
-}
 
 function VideoCard({ productId, name, videoUrl }: { productId: string; name: string; videoUrl: string }) {
   const [playing, setPlaying] = useState(false)

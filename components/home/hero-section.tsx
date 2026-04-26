@@ -2,24 +2,47 @@
 
 import Image from "next/image"
 import Link from "next/link"
+import { useEffect, useState } from "react"
 import { ArrowRight } from "lucide-react"
 import { useProductStore } from "@/lib/product-store"
 
 export function HeroSection() {
   const { settings } = useProductStore()
-  const heroImage = settings.heroImageUrl || "/images/hero-electronics.jpg"
+  const fallback = settings.heroImageUrl || "/images/hero-electronics.jpg"
+  const galleryImages = settings.heroGalleryImages?.filter(Boolean) || []
+  const slides = galleryImages.length > 0 ? galleryImages : [fallback]
+
+  const [activeSlide, setActiveSlide] = useState(0)
+
+  useEffect(() => {
+    if (slides.length <= 1) return
+    const interval = window.setInterval(() => {
+      setActiveSlide((current) => (current + 1) % slides.length)
+    }, 5000)
+    return () => window.clearInterval(interval)
+  }, [slides.length])
+
+  // Reset to first slide if the gallery contents change.
+  useEffect(() => {
+    setActiveSlide(0)
+  }, [slides.join("|")])
 
   return (
     <section className="relative overflow-hidden">
       <div className="absolute inset-0">
-        <Image
-          src={heroImage}
-          alt="Premium electronics collection"
-          fill
-          priority
-          className="object-cover opacity-40"
-          sizes="100vw"
-        />
+        {slides.map((src, index) => (
+          <Image
+            key={`${src}-${index}`}
+            src={src}
+            alt="Premium electronics collection"
+            fill
+            priority={index === 0}
+            className={`object-cover opacity-40 transition-opacity duration-1000 ${
+              index === activeSlide ? "opacity-40" : "opacity-0"
+            }`}
+            sizes="100vw"
+          />
+        ))}
         <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent" />
       </div>
 
@@ -48,6 +71,22 @@ export function HeroSection() {
             View Deals
           </Link>
         </div>
+
+        {slides.length > 1 && (
+          <div className="mt-10 flex items-center gap-2">
+            {slides.map((_, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => setActiveSlide(index)}
+                aria-label={`Show slide ${index + 1}`}
+                className={`h-1.5 rounded-full transition-all ${
+                  index === activeSlide ? "w-8 bg-foreground" : "w-3 bg-muted-foreground/40 hover:bg-muted-foreground/60"
+                }`}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   )

@@ -3,11 +3,7 @@
 import { useState } from "react"
 import { Play } from "lucide-react"
 import { useProductStore } from "@/lib/product-store"
-
-function getYouTubeId(url: string): string | null {
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/\s]{11})/)
-  return match ? match[1] : null
-}
+import { getYouTubeId } from "@/lib/video-utils"
 
 export function AdVideoSection() {
   const { settings } = useProductStore()
@@ -35,14 +31,14 @@ export function AdVideoSection() {
             {playing ? (
               ytId ? (
                 <iframe
-                  src={`https://www.youtube.com/embed/${ytId}?autoplay=1`}
+                  src={`https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&playsinline=1`}
                   title={settings.heroAdTitle || "Featured product video"}
                   className="h-full w-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
                 />
               ) : (
-                <video src={url} controls autoPlay className="h-full w-full object-cover" />
+                <video src={url} controls autoPlay playsInline className="h-full w-full object-cover" />
               )
             ) : (
               <button
