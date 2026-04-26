@@ -160,6 +160,8 @@ export default function AdminDashboardPage() {
   const [orders, setOrders] = useState<OrderRecord[]>([])
   const [allReviews, setAllReviews] = useState<ReviewItem[]>([])
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null)
+  const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [search, setSearch] = useState("")
   const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(null)
   const [productFormOpen, setProductFormOpen] = useState(false)
@@ -210,7 +212,7 @@ export default function AdminDashboardPage() {
   }, [])
 
   useEffect(() => {
-    if (tab === "analytics") loadAnalytics().catch((error) => showToast(error.message))
+    if (tab === "analytics") loadAnalytics()
   }, [tab])
 
   async function loadAdminData() {
@@ -222,10 +224,28 @@ export default function AdminDashboardPage() {
   }
 
   async function loadAnalytics() {
-    const response = await fetch("/api/admin/analytics", { cache: "no-store" })
-    if (!response.ok) throw new Error("Unable to load analytics")
-    const data = await response.json()
-    setAnalytics(data.analytics)
+    setAnalyticsLoading(true)
+    setAnalyticsError(null)
+    try {
+      const response = await fetch("/api/admin/analytics", { cache: "no-store" })
+      const text = await response.text()
+      let payload: any = null
+      try { payload = text ? JSON.parse(text) : null } catch { /* keep raw text */ }
+      if (!response.ok) {
+        const detail = payload?.error || text?.slice(0, 200) || `HTTP ${response.status}`
+        throw new Error(detail)
+      }
+      if (!payload || !payload.analytics) {
+        throw new Error("Server returned no analytics data")
+      }
+      setAnalytics(payload.analytics)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to load analytics"
+      setAnalyticsError(message)
+      setAnalytics(null)
+    } finally {
+      setAnalyticsLoading(false)
+    }
   }
 
   function showToast(message: string, tone: "success" | "error" = "success") {
@@ -1027,7 +1047,19 @@ export default function AdminDashboardPage() {
 
         {tab === "analytics" && (
           <div className="grid gap-4">
-            {!analytics ? <p className="text-sm text-muted-foreground">Loading analytics…</p> : (
+            {analyticsError ? (
+              <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-5">
+                <p className="text-sm font-semibold text-red-500">Couldn't load analytics</p>
+                <p className="mt-1 text-xs text-red-400 break-all">{analyticsError}</p>
+                <button
+                  onClick={() => loadAnalytics()}
+                  disabled={analyticsLoading}
+                  className="mt-3 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600 disabled:opacity-50"
+                >
+                  {analyticsLoading ? "Retrying…" : "Try again"}
+                </button>
+              </div>
+            ) : !analytics ? <p className="text-sm text-muted-foreground">Loading analytics…</p> : (
               <>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                   <Stat title="Total views" value={analytics.totalViews} />
