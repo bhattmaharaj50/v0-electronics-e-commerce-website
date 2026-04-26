@@ -1223,7 +1223,6 @@ export default function AdminDashboardPage() {
                   ))}
                 </div>
               )}
-              </div>
             </section>
 
             <section className="rounded-xl border border-border bg-card p-5">
@@ -1241,7 +1240,7 @@ export default function AdminDashboardPage() {
                 <div className="md:col-span-2">
                   <Label>Video URL (YouTube or MP4)</Label>
                   <div className="flex flex-wrap items-center gap-3">
-                    <Input value={settingsForm.heroAdVideoUrl} onChange={(e) => setSettingsForm({ ...settingsForm, heroAdVideoUrl: e.target.value })} placeholder="https://youtube.com/watch?v=... or https://..." />
+                    <Input value={settingsForm.heroAdVideoUrl} onChange={(e) => setSettingsForm({ ...settingsForm, heroAdVideoUrl: e.target.value })} onBlur={(e) => persistSettingField("heroAdVideoUrl", e.target.value, "Featured video")} placeholder="https://youtube.com/watch?v=... or https://..." />
                     <label className={`flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary ${uploadingHeroVideo ? "opacity-50 pointer-events-none" : ""}`}>
                       <Video className="h-3.5 w-3.5" />{uploadingHeroVideo ? "Uploading…" : "Upload video"}
                       <input type="file" accept="video/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadHomepageAsset(f, "heroVideo") }} />
