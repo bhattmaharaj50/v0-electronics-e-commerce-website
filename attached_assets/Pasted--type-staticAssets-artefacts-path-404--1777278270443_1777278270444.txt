@@ -1,0 +1,961 @@
+[
+  {
+    "type": "staticAssets",
+    "artefacts": [
+      {
+        "path": "/404",
+        "type": "HTML",
+        "size": 34416
+      },
+      {
+        "path": "/500",
+        "type": "HTML",
+        "size": 9313
+      },
+      {
+        "path": "/apple-icon.png",
+        "type": "Image",
+        "size": 2626
+      },
+      {
+        "path": "/icon-dark-32x32.png",
+        "type": "Image",
+        "size": 585
+      },
+      {
+        "path": "/icon-light-32x32.png",
+        "type": "Image",
+        "size": 566
+      },
+      {
+        "path": "/icon.svg",
+        "type": "Image",
+        "size": 1304
+      },
+      {
+        "path": "/images/hero-electronics.jpg",
+        "type": "Image",
+        "size": 58337
+      },
+      {
+        "path": "/placeholder-logo.png",
+        "type": "Image",
+        "size": 568
+      },
+      {
+        "path": "/placeholder-logo.svg",
+        "type": "Image",
+        "size": 3208
+      },
+      {
+        "path": "/placeholder-user.jpg",
+        "type": "Image",
+        "size": 1635
+      },
+      {
+        "path": "/placeholder.jpg",
+        "type": "Image",
+        "size": 1064
+      },
+      {
+        "path": "/placeholder.svg",
+        "type": "Image",
+        "size": 3253
+      },
+      {
+        "path": "/_next/static/bN4zfLiF44wfUIIw7uvsn/_buildManifest.js",
+        "type": "JS",
+        "size": 219
+      },
+      {
+        "path": "/_next/static/bN4zfLiF44wfUIIw7uvsn/_clientMiddlewareManifest.js",
+        "type": "JS",
+        "size": 96
+      },
+      {
+        "path": "/_next/static/bN4zfLiF44wfUIIw7uvsn/_ssgManifest.js",
+        "type": "JS",
+        "size": 106
+      },
+      {
+        "path": "/_next/static/chunks/0-.7s7ohhqnef.js",
+        "type": "JS",
+        "size": 21022
+      },
+      {
+        "path": "/_next/static/chunks/00281_cwj~31r.js",
+        "type": "JS",
+        "size": 37199
+      },
+      {
+        "path": "/_next/static/chunks/01xlw8hd842-c.js",
+        "type": "JS",
+        "size": 3377
+      },
+      {
+        "path": "/_next/static/chunks/03~yq9q893hmn.js",
+        "type": "JS",
+        "size": 112594
+      },
+      {
+        "path": "/_next/static/chunks/03h4w39-8q-g_.js",
+        "type": "JS",
+        "size": 34867
+      },
+      {
+        "path": "/_next/static/chunks/04e44n6cj5spc.js",
+        "type": "JS",
+        "size": 4429
+      },
+      {
+        "path": "/_next/static/chunks/0718etieh1n~c.js",
+        "type": "JS",
+        "size": 494998
+      },
+      {
+        "path": "/_next/static/chunks/0805t05cvv7ew.js",
+        "type": "JS",
+        "size": 36728
+      },
+      {
+        "path": "/_next/static/chunks/0bnfzpr5vq6et.css",
+        "type": "CSS",
+        "size": 154597
+      },
+      {
+        "path": "/_next/static/chunks/0ck94spsd8.gr.js",
+        "type": "JS",
+        "size": 33941
+      },
+      {
+        "path": "/_next/static/chunks/0l_dlvbtfrhvs.js",
+        "type": "JS",
+        "size": 21314
+      },
+      {
+        "path": "/_next/static/chunks/0nupdu1.akmsc.js",
+        "type": "JS",
+        "size": 18056
+      },
+      {
+        "path": "/_next/static/chunks/0pqt~8bl3ukh4.js",
+        "type": "JS",
+        "size": 44414
+      },
+      {
+        "path": "/_next/static/chunks/0suz61h4v95ye.js",
+        "type": "JS",
+        "size": 10110
+      },
+      {
+        "path": "/_next/static/chunks/0w_86bt4ux4i1.css",
+        "type": "CSS",
+        "size": 3455
+      },
+      {
+        "path": "/_next/static/chunks/0w~a-8gprzqct.js",
+        "type": "JS",
+        "size": 136644
+      },
+      {
+        "path": "/_next/static/chunks/0w2x~-3f4_5s8.js",
+        "type": "JS",
+        "size": 54644
+      },
+      {
+        "path": "/_next/static/chunks/0wezx_re4be6b.js",
+        "type": "JS",
+        "size": 26330
+      },
+      {
+        "path": "/_next/static/chunks/0xzjh0r0c.0ig.js",
+        "type": "JS",
+        "size": 4525
+      },
+      {
+        "path": "/_next/static/chunks/0y9o72jt6pxug.js",
+        "type": "JS",
+        "size": 88291
+      },
+      {
+        "path": "/_next/static/chunks/0yb2wil16uz6h.js",
+        "type": "JS",
+        "size": 5587
+      },
+      {
+        "path": "/_next/static/chunks/10~x95jhs6ns3.js",
+        "type": "JS",
+        "size": 227314
+      },
+      {
+        "path": "/_next/static/chunks/10jp9.uepzxp3.js",
+        "type": "JS",
+        "size": 19796
+      },
+      {
+        "path": "/_next/static/chunks/17nvg_xpf__d8.js",
+        "type": "JS",
+        "size": 31396
+      },
+      {
+        "path": "/_next/static/chunks/turbopack-1353obluobw5t.js",
+        "type": "JS",
+        "size": 11052
+      },
+      {
+        "path": "/_next/static/media/0c89a48fa5027cee-s.p.0rd3rjvnnhw7n.woff2",
+        "type": "Font",
+        "size": 22320
+      },
+      {
+        "path": "/_next/static/media/1bffadaabf893a1e-s.16ipb6fqu393i.woff2",
+        "type": "Font",
+        "size": 85272
+      },
+      {
+        "path": "/_next/static/media/28868e710e86be81-s.0rx81dn62y51_.woff2",
+        "type": "Font",
+        "size": 18924
+      },
+      {
+        "path": "/_next/static/media/2bbe8d2671613f1f-s.067x_6k0k23tk.woff2",
+        "type": "Font",
+        "size": 10280
+      },
+      {
+        "path": "/_next/static/media/2c55a0e60120577a-s.0bjc5tiuqdqro.woff2",
+        "type": "Font",
+        "size": 25844
+      },
+      {
+        "path": "/_next/static/media/32687112bd2dd8db-s.0gspg~~t9nou8.woff2",
+        "type": "Font",
+        "size": 6772
+      },
+      {
+        "path": "/_next/static/media/5476f68d60460930-s.0wxq9webf.ew4.woff2",
+        "type": "Font",
+        "size": 19044
+      },
+      {
+        "path": "/_next/static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2",
+        "type": "Font",
+        "size": 48432
+      },
+      {
+        "path": "/_next/static/media/9c72aa0f40e4eef8-s.0m6w47a4e5dy9.woff2",
+        "type": "Font",
+        "size": 18744
+      },
+      {
+        "path": "/_next/static/media/ad66f9afd8947f86-s.11u06r12fd6v_.woff2",
+        "type": "Font",
+        "size": 11272
+      },
+      {
+        "path": "/_next/static/not-found.txt",
+        "type": "Misc",
+        "size": 9
+      }
+    ]
+  },
+  {
+    "type": "serverlessFunctions",
+    "artefacts": [
+      {
+        "path": "/",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/",
+        "timeout": 300
+      },
+      {
+        "path": "/_global-error",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/_global-error",
+        "timeout": 300
+      },
+      {
+        "path": "/about",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/about",
+        "timeout": 300
+      },
+      {
+        "path": "/admin",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/admin",
+        "timeout": 300
+      },
+      {
+        "path": "/admin/change-password",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/admin/change-password",
+        "timeout": 300
+      },
+      {
+        "path": "/admin/dashboard",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/admin/dashboard",
+        "timeout": 300
+      },
+      {
+        "path": "/api/admin/analytics",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "timeout": 300
+      },
+      {
+        "path": "/api/admin/data",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "timeout": 300
+      },
+      {
+        "path": "/api/admin/orders/[orderNumber]",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "timeout": 300
+      },
+      {
+        "path": "/api/admin/reports",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "timeout": 300
+      },
+      {
+        "path": "/api/admin/users",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "timeout": 300
+      },
+      {
+        "path": "/api/analytics/track",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "timeout": 300
+      },
+      {
+        "path": "/api/auth/login",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "timeout": 300
+      },
+      {
+        "path": "/api/auth/logout",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "timeout": 300
+      },
+      {
+        "path": "/api/auth/me",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "timeout": 300
+      },
+      {
+        "path": "/api/orders",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "timeout": 300
+      },
+      {
+        "path": "/api/reviews",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "timeout": 300
+      },
+      {
+        "path": "/api/store",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "timeout": 300
+      },
+      {
+        "path": "/api/upload",
+        "type": "PAGE",
+        "size": 1041256,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "timeout": 60
+      },
+      {
+        "path": "/cart",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/cart",
+        "timeout": 300
+      },
+      {
+        "path": "/checkout",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/checkout",
+        "timeout": 300
+      },
+      {
+        "path": "/contact",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/contact",
+        "timeout": 300
+      },
+      {
+        "path": "/objects/[...path]",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "timeout": 300
+      },
+      {
+        "path": "/products",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products",
+        "timeout": 300
+      },
+      {
+        "path": "/products/[id]",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/ca-001",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/ck-001",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/ck-002",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/ck-003",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/fr-001",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/sb-001",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/sb-002",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/sb-003",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/sb-004",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/sb-005",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/sb-006",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/sb-007",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/sb-008",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/sb-009",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/sb-010",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-001",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-002",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-003",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-004",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-005",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-006",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-007",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-008",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-009",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-010",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-011",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-012",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-013",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-014",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-015",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-016",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-017",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-018",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-019",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-020",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-021",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/tv-022",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/wm-001",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      },
+      {
+        "path": "/products/wm-002",
+        "type": "PAGE",
+        "size": 3963837,
+        "regions": [
+          "iad1"
+        ],
+        "runtime": "nodejs24.x",
+        "sourcePath": "/products/[id]",
+        "timeout": 300
+      }
+    ]
+  },
+  {
+    "type": "cronJobs",
+    "artefacts": []
+  }
+]
