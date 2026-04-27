@@ -43,8 +43,8 @@ export function HeroSection() {
             alt="Premium electronics collection"
             fill
             priority={index === 0}
-            className={`object-cover transition-opacity duration-[1400ms] ${
-              index === activeSlide ? "opacity-30 scale-105" : "opacity-0"
+            className={`object-cover transition-all duration-[1400ms] ease-in-out ${
+              index === activeSlide ? "opacity-70 scale-105" : "opacity-0 scale-100"
             }`}
             sizes="100vw"
           />
@@ -52,8 +52,8 @@ export function HeroSection() {
       </div>
 
       {/* Layered gradients + subtle grid for depth */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/70 to-background" />
-      <div className="absolute inset-0 bg-gradient-to-r from-background via-background/85 to-transparent lg:to-background/20" />
+      <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-background/40 to-background/90" />
+      <div className="absolute inset-0 bg-gradient-to-r from-background/90 via-background/50 to-transparent lg:to-background/10" />
       <div
         className="absolute inset-0 opacity-[0.18]"
         style={{
