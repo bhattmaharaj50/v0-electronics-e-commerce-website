@@ -118,11 +118,20 @@ const defaultSettings: SiteSettings = {
 
 const globalForDb = globalThis as unknown as { munexPool?: Pool; munexReady?: Promise<void> }
 
+function shouldUseSsl(url: string | undefined): boolean {
+  if (!url) return false
+  if (process.env.NODE_ENV === "production") return true
+  // Auto-enable SSL for hosted Postgres (Neon, Supabase, etc.) but not local
+  if (/sslmode=require/i.test(url)) return true
+  if (/\.neon\.tech|\.supabase\.co|\.aws\.neon\.|\.pooler\./i.test(url)) return true
+  return false
+}
+
 export const pool =
   globalForDb.munexPool ??
   new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined,
+    ssl: shouldUseSsl(process.env.DATABASE_URL) ? { rejectUnauthorized: false } : undefined,
     max: 20,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,

@@ -42,6 +42,18 @@ export async function POST(request: Request) {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
+    // Prefer Vercel Blob in production (when BLOB_READ_WRITE_TOKEN is set).
+    // Fall back to Replit Object Storage for local development.
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const { put } = await import("@vercel/blob")
+      const blob = await put(`uploads/${safeName}`, buffer, {
+        access: "public",
+        contentType: file.type,
+        cacheControlMaxAge: 31536000,
+      })
+      return NextResponse.json({ url: blob.url })
+    }
+
     const { publicUrl } = await uploadPublicObject({
       buffer,
       contentType: file.type,
