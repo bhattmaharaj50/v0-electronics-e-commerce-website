@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Zap, Eye, EyeOff, Lock } from "lucide-react"
 
@@ -136,6 +137,13 @@ export default function AdminLoginPage() {
             >
               {loading ? "Signing in..." : "Sign In"}
             </button>
+
+            <Link
+              href="/admin/forgot"
+              className="mt-1 text-center text-xs font-medium text-muted-foreground underline-offset-4 hover:underline"
+            >
+              Forgot password?
+            </Link>
           </form>
         </div>
       </div>

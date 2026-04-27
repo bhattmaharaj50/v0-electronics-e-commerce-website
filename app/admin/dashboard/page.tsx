@@ -8,6 +8,7 @@ import {
   Check,
   Gift,
   Image as ImageIcon,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   MapPin,
@@ -120,6 +121,7 @@ interface AdminUserItem {
   role: AdminRole
   createdAt: string
   lastLoginAt: string | null
+  hasRecoveryCode?: boolean
 }
 
 interface SalesReportData {
@@ -461,6 +463,30 @@ export default function AdminDashboardPage() {
       await loadAdminUsers()
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Delete failed", "error")
+    }
+  }
+
+  async function generateRecoveryCode(user: AdminUserItem) {
+    const message = user.hasRecoveryCode
+      ? `Replace the existing recovery code for "${user.username}"?\n\nThe old code will stop working immediately.`
+      : `Generate a recovery code for "${user.username}"?\n\nThis code lets the user reset their password without help.`
+    if (!confirm(message)) return
+    try {
+      const res = await csrfFetch("/api/admin/users/recovery-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: user.id }),
+      })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(payload?.error || "Could not generate recovery code")
+      const code = payload.recoveryCode as string
+      window.prompt(
+        `Recovery code for "${user.username}".\n\nSave this somewhere safe NOW — it will not be shown again.\n\nUse it on the "Forgot password?" page to reset the password.`,
+        code
+      )
+      await loadAdminUsers()
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Could not generate recovery code", "error")
     }
   }
 
@@ -1583,10 +1609,19 @@ export default function AdminDashboardPage() {
                           {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "Never"}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <div className="flex justify-end gap-2">
+                          <div className="flex flex-wrap justify-end gap-2">
                             <button onClick={() => openEditAdmin(u)} className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-secondary">
                               <Pencil className="inline h-3 w-3" /> Edit
                             </button>
+                            {(currentUser?.role === "owner" || u.id === currentUser?.id) && (
+                              <button
+                                onClick={() => generateRecoveryCode(u)}
+                                className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-secondary"
+                                title={u.hasRecoveryCode ? "Replace recovery code" : "Generate recovery code"}
+                              >
+                                <KeyRound className="inline h-3 w-3" /> {u.hasRecoveryCode ? "New code" : "Recovery code"}
+                              </button>
+                            )}
                             {u.id !== currentUser?.id && (
                               <button onClick={() => removeAdmin(u)} className="rounded-lg border border-red-500/40 px-2.5 py-1 text-xs font-medium text-red-500 hover:bg-red-500/10">
                                 <Trash2 className="inline h-3 w-3" /> Delete

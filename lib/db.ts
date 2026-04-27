@@ -78,6 +78,7 @@ export interface AdminUser {
   createdAt: string
   lastLoginAt: string | null
   mustChangePassword: boolean
+  hasRecoveryCode: boolean
 }
 
 export interface AdminSession {
@@ -279,6 +280,7 @@ function adminUserFromRow(row: any): AdminUser {
     createdAt: toIso(row.created_at),
     lastLoginAt: row.last_login_at ? toIso(row.last_login_at) : null,
     mustChangePassword: Boolean(row.must_change_password),
+    hasRecoveryCode: Boolean(row.recovery_code_hash),
   }
 }
 
@@ -311,6 +313,13 @@ async function setupDatabase() {
     await pool.query("INSERT INTO schema_version (version) VALUES ($1)", [SCHEMA_VERSION])
     console.log(`[db] Schema v${SCHEMA_VERSION} ready.`)
   }
+
+  // Idempotent column additions for forgot-password support (no schema bump).
+  await pool.query(`
+    ALTER TABLE admin_users
+      ADD COLUMN IF NOT EXISTS recovery_code_hash TEXT,
+      ADD COLUMN IF NOT EXISTS recovery_code_set_at TIMESTAMP
+  `)
 }
 
 async function createSchema() {
@@ -791,10 +800,13 @@ async function refreshProductRating(productId: string) {
 
 // ===== Admin users =====
 
+const ADMIN_SELECT_COLUMNS =
+  "id, username, full_name, role, must_change_password, created_at, last_login_at, recovery_code_hash"
+
 export async function listAdminUsers(): Promise<AdminUser[]> {
   await ensureDatabase()
   const result = await pool.query(
-    "SELECT id, username, full_name, role, must_change_password, created_at, last_login_at FROM admin_users ORDER BY id ASC"
+    `SELECT ${ADMIN_SELECT_COLUMNS} FROM admin_users ORDER BY id ASC`
   )
   return result.rows.map(adminUserFromRow)
 }
@@ -804,13 +816,17 @@ export async function getAdminUserByUsername(username: string) {
   const result = await pool.query("SELECT * FROM admin_users WHERE username = $1 LIMIT 1", [username])
   if (!result.rowCount) return null
   const row = result.rows[0]
-  return { ...adminUserFromRow(row), passwordHash: row.password_hash as string }
+  return {
+    ...adminUserFromRow(row),
+    passwordHash: row.password_hash as string,
+    recoveryCodeHash: (row.recovery_code_hash as string | null) ?? null,
+  }
 }
 
 export async function getAdminUserById(id: number) {
   await ensureDatabase()
   const result = await pool.query(
-    "SELECT id, username, full_name, role, must_change_password, created_at, last_login_at FROM admin_users WHERE id = $1 LIMIT 1",
+    `SELECT ${ADMIN_SELECT_COLUMNS} FROM admin_users WHERE id = $1 LIMIT 1`,
     [id]
   )
   if (!result.rowCount) return null
@@ -828,7 +844,7 @@ export async function createAdminUser(payload: {
   const result = await pool.query(
     `INSERT INTO admin_users (username, password_hash, full_name, role, must_change_password)
      VALUES ($1,$2,$3,$4,$5)
-     RETURNING id, username, full_name, role, must_change_password, created_at, last_login_at`,
+     RETURNING ${ADMIN_SELECT_COLUMNS}`,
     [payload.username, payload.passwordHash, payload.fullName, payload.role, payload.mustChangePassword ?? true]
   )
   return adminUserFromRow(result.rows[0])
@@ -865,11 +881,50 @@ export async function updateAdminUser(payload: {
   values.push(payload.id)
   const result = await pool.query(
     `UPDATE admin_users SET ${fields.join(", ")} WHERE id = $${i}
-     RETURNING id, username, full_name, role, must_change_password, created_at, last_login_at`,
+     RETURNING ${ADMIN_SELECT_COLUMNS}`,
     values
   )
   if (!result.rowCount) return null
   return adminUserFromRow(result.rows[0])
+}
+
+export async function setAdminRecoveryCode(id: number, recoveryCodeHash: string) {
+  await ensureDatabase()
+  const result = await pool.query(
+    `UPDATE admin_users
+       SET recovery_code_hash = $1, recovery_code_set_at = NOW()
+     WHERE id = $2
+     RETURNING ${ADMIN_SELECT_COLUMNS}`,
+    [recoveryCodeHash, id]
+  )
+  if (!result.rowCount) return null
+  return adminUserFromRow(result.rows[0])
+}
+
+export async function clearAdminRecoveryCode(id: number) {
+  await ensureDatabase()
+  await pool.query(
+    "UPDATE admin_users SET recovery_code_hash = NULL, recovery_code_set_at = NULL WHERE id = $1",
+    [id]
+  )
+}
+
+export async function resetAdminPasswordWithRecovery(payload: {
+  id: number
+  passwordHash: string
+}) {
+  await ensureDatabase()
+  await pool.query(
+    `UPDATE admin_users
+       SET password_hash = $1,
+           must_change_password = false,
+           recovery_code_hash = NULL,
+           recovery_code_set_at = NULL
+     WHERE id = $2`,
+    [payload.passwordHash, payload.id]
+  )
+  // Invalidate any existing sessions so other devices have to log in again.
+  await pool.query("DELETE FROM admin_sessions WHERE user_id = $1", [payload.id])
 }
 
 export async function deleteAdminUser(id: number) {
