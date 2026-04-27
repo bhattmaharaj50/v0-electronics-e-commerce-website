@@ -29,6 +29,7 @@ import {
 import { useProductStore, type Category, type SiteSettings } from "@/lib/product-store"
 import type { Product } from "@/lib/products"
 import { formatPrice } from "@/lib/products"
+import { AdminProductPreview } from "@/components/admin-product-preview"
 
 const AUTH_KEY = "munex_admin_auth"
 const ORDER_STATUSES = ["new", "pending_payment", "paid", "confirmed", "processing", "ready", "dispatched", "delivered", "cancelled"]
@@ -1535,9 +1536,15 @@ export default function AdminDashboardPage() {
 
       {productFormOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-background/80 p-4 backdrop-blur-sm">
-          <div className="mx-auto max-w-3xl rounded-2xl border border-border bg-card shadow-xl">
+          <div className="mx-auto flex max-h-[90vh] w-full max-w-5xl flex-col rounded-2xl border border-border bg-card shadow-xl">
             <div className="flex items-center justify-between border-b border-border p-5"><h2 className="text-lg font-bold text-foreground">{editingProduct ? "Edit Product" : "Add Product"}</h2><button onClick={() => setProductFormOpen(false)}><X className="h-5 w-5" /></button></div>
-            <form onSubmit={saveProduct} className="grid gap-4 p-5 md:grid-cols-2">
+            <div className="flex flex-1 flex-col overflow-y-auto md:flex-row">
+            <aside className="order-first border-b border-border bg-card p-5 md:order-last md:w-80 md:flex-shrink-0 md:border-b-0 md:border-l">
+              <div className="md:sticky md:top-0">
+                <AdminProductPreview product={productForm} />
+              </div>
+            </aside>
+            <form onSubmit={saveProduct} className="grid flex-1 gap-4 p-5 md:grid-cols-2">
               <div className="md:col-span-2"><Label>Product name *</Label><Input required value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} /></div>
               <div><Label>Price *</Label><Input required type="number" value={productForm.price || ""} onChange={(e) => setProductForm({ ...productForm, price: Number(e.target.value) })} /></div>
               <div><Label>Original price</Label><Input type="number" value={productForm.originalPrice || ""} onChange={(e) => setProductForm({ ...productForm, originalPrice: e.target.value ? Number(e.target.value) : undefined })} /></div>
@@ -1624,6 +1631,7 @@ export default function AdminDashboardPage() {
               <div className="md:col-span-2"><Label>Description *</Label><textarea required value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} className="min-h-32 w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
               <div className="md:col-span-2 flex flex-wrap justify-end gap-3"><button type="button" onClick={() => setProductFormOpen(false)} className="rounded-lg border border-border px-5 py-2.5 text-sm">Cancel</button><button type="button" onClick={(e) => saveProduct(e as unknown as React.FormEvent, true)} className="rounded-lg border border-border bg-secondary px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-secondary/80">Save &amp; Preview Homepage</button><button className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">Save Product</button></div>
             </form>
+            </div>
           </div>
         </div>
       )}
