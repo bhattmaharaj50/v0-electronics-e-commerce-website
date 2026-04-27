@@ -320,6 +320,20 @@ async function setupDatabase() {
       ADD COLUMN IF NOT EXISTS recovery_code_hash TEXT,
       ADD COLUMN IF NOT EXISTS recovery_code_set_at TIMESTAMP
   `)
+
+  // Idempotent uploads table — used as a built-in storage fallback so the
+  // dashboard's image/video upload always works, even when no external bucket
+  // (Replit Object Storage / Netlify Blobs) has been provisioned.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS uploads (
+      filename TEXT PRIMARY KEY,
+      content_type TEXT NOT NULL,
+      size INTEGER NOT NULL DEFAULT 0,
+      data BYTEA NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_uploads_created ON uploads(created_at DESC)`)
 }
 
 async function createSchema() {
