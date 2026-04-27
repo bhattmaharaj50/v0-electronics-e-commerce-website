@@ -24,6 +24,24 @@ export async function clearCsrfCookie() {
   cookieStore.delete(CSRF_COOKIE)
 }
 
+/**
+ * Ensure a CSRF cookie exists for an authenticated request. If the cookie is
+ * missing (e.g. it expired, was cleared by the browser, or the user logged in
+ * before this protection existed) we issue a fresh one so the next mutating
+ * request from the client can echo it back. This keeps long-lived sessions
+ * usable without forcing a re-login.
+ */
+export async function ensureCsrfCookie(): Promise<string> {
+  const cookieStore = await cookies()
+  const existing = cookieStore.get(CSRF_COOKIE)?.value
+  if (existing && /^[0-9a-f]{64}$/i.test(existing)) return existing
+  const token = makeCsrfToken()
+  const expires = new Date()
+  expires.setDate(expires.getDate() + 30)
+  await setCsrfCookie(token, expires)
+  return token
+}
+
 function safeEqualHex(a: string, b: string): boolean {
   if (!a || !b || a.length !== b.length) return false
   try {

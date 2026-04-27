@@ -9,7 +9,7 @@ import {
   touchAdminLogin,
   type AdminUser,
 } from "@/lib/db"
-import { CSRF_COOKIE, makeCsrfToken, setCsrfCookie, clearCsrfCookie } from "@/lib/csrf"
+import { CSRF_COOKIE, ensureCsrfCookie, makeCsrfToken, setCsrfCookie, clearCsrfCookie } from "@/lib/csrf"
 
 const COOKIE_NAME = "munex_session"
 const SESSION_DAYS = 30
@@ -89,6 +89,14 @@ export async function requireAdmin(): Promise<AdminUser> {
     const err = new Error("Not authenticated")
     ;(err as any).status = 401
     throw err
+  }
+  // Make sure a CSRF cookie is always available alongside a valid session.
+  // Without this, sessions that pre-date the CSRF middleware (or sessions
+  // whose CSRF cookie was cleared) would never be able to perform writes.
+  try {
+    await ensureCsrfCookie()
+  } catch {
+    // Best-effort — never block authentication on cookie issuance.
   }
   return user
 }
