@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { updateOrderStatus } from "@/lib/db"
 import { authErrorResponse, requireAdmin } from "@/lib/auth"
+import { requireCsrf } from "@/lib/csrf"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -11,6 +12,7 @@ export async function PATCH(
 ) {
   try {
     await requireAdmin()
+    await requireCsrf(request)
     const { orderNumber } = await params
     const body = await request.json()
     const order = await updateOrderStatus(orderNumber, body.status)

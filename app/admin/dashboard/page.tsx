@@ -45,6 +45,7 @@ import { useProductStore, type Category, type SiteSettings } from "@/lib/product
 import type { Product } from "@/lib/products"
 import { formatPrice } from "@/lib/products"
 import { AdminProductPreview } from "@/components/admin-product-preview"
+import { csrfFetch } from "@/lib/csrf-client"
 
 const ORDER_STATUSES = ["new", "pending_payment", "paid", "confirmed", "processing", "ready", "dispatched", "delivered", "cancelled"]
 const STATUS_COLORS: Record<string, string> = {
@@ -164,7 +165,7 @@ function Label({ children }: { children: React.ReactNode }) {
 }
 
 async function adminAction(action: string, payload: Record<string, unknown>) {
-  const response = await fetch("/api/admin/data", {
+  const response = await csrfFetch("/api/admin/data", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action, ...payload }),
@@ -423,7 +424,7 @@ export default function AdminDashboardPage() {
       if (editingAdmin) {
         const body: Record<string, unknown> = { id: editingAdmin.id, fullName: adminForm.fullName, role: adminForm.role }
         if (adminForm.password) body.password = adminForm.password
-        const res = await fetch("/api/admin/users", {
+        const res = await csrfFetch("/api/admin/users", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -432,7 +433,7 @@ export default function AdminDashboardPage() {
         if (!res.ok) throw new Error(payload?.error || "Update failed")
         showToast(`✓ ${adminForm.username || editingAdmin.username} updated`)
       } else {
-        const res = await fetch("/api/admin/users", {
+        const res = await csrfFetch("/api/admin/users", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(adminForm),
@@ -453,7 +454,7 @@ export default function AdminDashboardPage() {
   async function removeAdmin(user: AdminUserItem) {
     if (!confirm(`Delete admin "${user.username}"? This cannot be undone.`)) return
     try {
-      const res = await fetch(`/api/admin/users?id=${user.id}`, { method: "DELETE" })
+      const res = await csrfFetch(`/api/admin/users?id=${user.id}`, { method: "DELETE" })
       const payload = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(payload?.error || "Delete failed")
       showToast(`Admin "${user.username}" deleted`)
@@ -558,7 +559,7 @@ export default function AdminDashboardPage() {
   async function uploadFile(file: File): Promise<string> {
     const fd = new FormData()
     fd.append("file", file)
-    const res = await fetch("/api/upload", { method: "POST", body: fd })
+    const res = await csrfFetch("/api/upload", { method: "POST", body: fd })
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || "Upload failed")
     return data.url as string

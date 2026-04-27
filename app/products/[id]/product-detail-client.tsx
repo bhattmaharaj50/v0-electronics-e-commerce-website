@@ -5,11 +5,17 @@ import Image from "next/image"
 import { Star, ShoppingCart, Heart, Share2, ArrowLeft, Minus, Plus, Play } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import DOMPurify from "isomorphic-dompurify"
 import { formatPrice } from "@/lib/products"
 import { useCart } from "@/lib/cart-context"
 import { useProductStore } from "@/lib/product-store"
 import { ProductCard } from "@/components/product-card"
 import { ProductReviews } from "@/components/product-reviews"
+
+const SANITIZE_CONFIG = {
+  ALLOWED_TAGS: ["p", "br", "strong", "em", "u", "ul", "ol", "li", "a", "span", "h3", "h4", "h5"],
+  ALLOWED_ATTR: ["href", "target", "rel", "class"],
+}
 
 function getYouTubeId(url: string): string | null {
   const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/\s]{11})/)
@@ -167,7 +173,9 @@ export default function ProductDetailClient({ id }: { id: string }) {
             <h1 className="text-3xl font-bold text-foreground">{product.name}</h1>
             <div
               className="mt-2 text-sm text-muted-foreground prose prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: product.description }}
+              dangerouslySetInnerHTML={{
+                __html: DOMPurify.sanitize(product.description || "", SANITIZE_CONFIG),
+              }}
             />
           </div>
 

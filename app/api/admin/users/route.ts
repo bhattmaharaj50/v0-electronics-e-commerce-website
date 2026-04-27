@@ -5,6 +5,7 @@ import {
   requireAdmin,
   requireOwner,
 } from "@/lib/auth"
+import { requireCsrf } from "@/lib/csrf"
 import {
   createAdminUser,
   deleteAdminUser,
@@ -41,6 +42,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     await requireOwner()
+    await requireCsrf(request)
     const body = await request.json().catch(() => ({}))
     const username = String(body.username || "").trim().toLowerCase()
     const password = String(body.password || "")
@@ -69,6 +71,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const me = await requireAdmin()
+    await requireCsrf(request)
     const body = await request.json().catch(() => ({}))
     const id = Number(body.id)
     if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 })
@@ -81,7 +84,13 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Owner role required" }, { status: 403 })
     }
 
-    const update: { id: number; fullName?: string; role?: AdminRole; passwordHash?: string } = { id }
+    const update: {
+      id: number
+      fullName?: string
+      role?: AdminRole
+      passwordHash?: string
+      mustChangePassword?: boolean
+    } = { id }
 
     if (body.fullName !== undefined) update.fullName = String(body.fullName).trim()
 
@@ -91,6 +100,12 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 })
       }
       update.passwordHash = await hashPassword(password)
+      // Clear the forced-change flag whenever a user updates their own password.
+      if (id === me.id) update.mustChangePassword = false
+    }
+
+    if (body.mustChangePassword !== undefined && me.role === "owner") {
+      update.mustChangePassword = Boolean(body.mustChangePassword)
     }
 
     if (body.role !== undefined) {
@@ -118,6 +133,7 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const me = await requireOwner()
+    await requireCsrf(request)
     const url = new URL(request.url)
     const id = Number(url.searchParams.get("id"))
     if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 })

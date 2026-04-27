@@ -9,6 +9,7 @@ import {
   touchAdminLogin,
   type AdminUser,
 } from "@/lib/db"
+import { CSRF_COOKIE, makeCsrfToken, setCsrfCookie, clearCsrfCookie } from "@/lib/csrf"
 
 const COOKIE_NAME = "munex_session"
 const SESSION_DAYS = 30
@@ -51,6 +52,9 @@ export async function loginAdmin(username: string, password: string): Promise<Ad
     expires: expiresAt,
   })
 
+  // Issue a CSRF token for double-submit-cookie protection on writes.
+  await setCsrfCookie(makeCsrfToken(), expiresAt)
+
   return {
     id: user.id,
     username: user.username,
@@ -58,6 +62,7 @@ export async function loginAdmin(username: string, password: string): Promise<Ad
     role: user.role,
     createdAt: user.createdAt,
     lastLoginAt: user.lastLoginAt,
+    mustChangePassword: user.mustChangePassword,
   }
 }
 
@@ -66,6 +71,7 @@ export async function logoutAdmin(): Promise<void> {
   const token = cookieStore.get(COOKIE_NAME)?.value
   if (token) await deleteAdminSession(token)
   cookieStore.delete(COOKIE_NAME)
+  await clearCsrfCookie()
 }
 
 export async function getCurrentAdmin(): Promise<AdminUser | null> {

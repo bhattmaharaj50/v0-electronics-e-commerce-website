@@ -10,7 +10,15 @@ export async function GET(
 ) {
   try {
     const { path } = await context.params
-    const relativePath = (path || []).join("/")
+    const segments = path || []
+    // Reject path-traversal and absolute-path tricks. Bucket scoping on its own
+    // is not enough — `..` segments would let a request escape the public prefix.
+    for (const seg of segments) {
+      if (!seg || seg === "." || seg === ".." || seg.includes("\\") || seg.includes("/")) {
+        return NextResponse.json({ error: "Object not found" }, { status: 404 })
+      }
+    }
+    const relativePath = segments.join("/")
     if (!relativePath) {
       return NextResponse.json({ error: "Object not found" }, { status: 404 })
     }

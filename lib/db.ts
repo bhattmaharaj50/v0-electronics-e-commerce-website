@@ -77,6 +77,7 @@ export interface AdminUser {
   role: AdminRole
   createdAt: string
   lastLoginAt: string | null
+  mustChangePassword: boolean
 }
 
 export interface AdminSession {
@@ -157,7 +158,7 @@ const defaultSettings: SiteSettings = {
 
 // ===== Pool =====
 
-const SCHEMA_VERSION = 2
+const SCHEMA_VERSION = 3
 const ALL_TABLES = [
   "admin_sessions",
   "admin_users",
@@ -277,6 +278,7 @@ function adminUserFromRow(row: any): AdminUser {
     role: row.role === "owner" ? "owner" : "staff",
     createdAt: toIso(row.created_at),
     lastLoginAt: row.last_login_at ? toIso(row.last_login_at) : null,
+    mustChangePassword: Boolean(row.must_change_password),
   }
 }
 
@@ -393,6 +395,7 @@ async function createSchema() {
       password_hash TEXT NOT NULL,
       full_name TEXT NOT NULL DEFAULT '',
       role TEXT NOT NULL DEFAULT 'staff',
+      must_change_password BOOLEAN NOT NULL DEFAULT false,
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
       last_login_at TIMESTAMP
     );
@@ -487,16 +490,16 @@ async function seedDefaults() {
     await pool.query("INSERT INTO site_settings (key, value) VALUES ($1, $2)", [key, value])
   }
 
-  // Seed default admin (owner role): admin / munex2024
-  // Hashed lazily via bcrypt at module top level — but to avoid loading bcrypt
-  // here, we delegate this to lib/auth.ts on first request. Insert a marker row
-  // here so that lib/auth.ts can complete the bootstrap.
-  // Actually we can call bcrypt directly:
+  // Seed default admin (owner role). Password defaults to "munex2024" but can be
+  // overridden via the SEED_ADMIN_PASSWORD env var. The flag must_change_password
+  // forces the user to choose a new password on their first login.
   const bcrypt = await import("bcryptjs")
-  const hash = await bcrypt.hash("munex2024", 10)
+  const seedPassword = process.env.SEED_ADMIN_PASSWORD || "munex2024"
+  const hash = await bcrypt.hash(seedPassword, 10)
   await pool.query(
-    "INSERT INTO admin_users (username, password_hash, full_name, role) VALUES ($1, $2, $3, $4)",
-    ["admin", hash, "Owner", "owner"]
+    `INSERT INTO admin_users (username, password_hash, full_name, role, must_change_password)
+     VALUES ($1, $2, $3, $4, $5)`,
+    ["admin", hash, "Owner", "owner", true]
   )
 }
 
@@ -791,7 +794,7 @@ async function refreshProductRating(productId: string) {
 export async function listAdminUsers(): Promise<AdminUser[]> {
   await ensureDatabase()
   const result = await pool.query(
-    "SELECT id, username, full_name, role, created_at, last_login_at FROM admin_users ORDER BY id ASC"
+    "SELECT id, username, full_name, role, must_change_password, created_at, last_login_at FROM admin_users ORDER BY id ASC"
   )
   return result.rows.map(adminUserFromRow)
 }
@@ -807,7 +810,7 @@ export async function getAdminUserByUsername(username: string) {
 export async function getAdminUserById(id: number) {
   await ensureDatabase()
   const result = await pool.query(
-    "SELECT id, username, full_name, role, created_at, last_login_at FROM admin_users WHERE id = $1 LIMIT 1",
+    "SELECT id, username, full_name, role, must_change_password, created_at, last_login_at FROM admin_users WHERE id = $1 LIMIT 1",
     [id]
   )
   if (!result.rowCount) return null
@@ -819,12 +822,14 @@ export async function createAdminUser(payload: {
   passwordHash: string
   fullName: string
   role: AdminRole
+  mustChangePassword?: boolean
 }) {
   await ensureDatabase()
   const result = await pool.query(
-    `INSERT INTO admin_users (username, password_hash, full_name, role)
-     VALUES ($1,$2,$3,$4) RETURNING id, username, full_name, role, created_at, last_login_at`,
-    [payload.username, payload.passwordHash, payload.fullName, payload.role]
+    `INSERT INTO admin_users (username, password_hash, full_name, role, must_change_password)
+     VALUES ($1,$2,$3,$4,$5)
+     RETURNING id, username, full_name, role, must_change_password, created_at, last_login_at`,
+    [payload.username, payload.passwordHash, payload.fullName, payload.role, payload.mustChangePassword ?? true]
   )
   return adminUserFromRow(result.rows[0])
 }
@@ -834,6 +839,7 @@ export async function updateAdminUser(payload: {
   fullName?: string
   role?: AdminRole
   passwordHash?: string
+  mustChangePassword?: boolean
 }) {
   await ensureDatabase()
   const fields: string[] = []
@@ -851,11 +857,15 @@ export async function updateAdminUser(payload: {
     fields.push(`password_hash = $${i++}`)
     values.push(payload.passwordHash)
   }
+  if (payload.mustChangePassword !== undefined) {
+    fields.push(`must_change_password = $${i++}`)
+    values.push(payload.mustChangePassword)
+  }
   if (fields.length === 0) return null
   values.push(payload.id)
   const result = await pool.query(
     `UPDATE admin_users SET ${fields.join(", ")} WHERE id = $${i}
-     RETURNING id, username, full_name, role, created_at, last_login_at`,
+     RETURNING id, username, full_name, role, must_change_password, created_at, last_login_at`,
     values
   )
   if (!result.rowCount) return null
@@ -885,7 +895,7 @@ export async function createAdminSession(userId: number, token: string, expiresA
 export async function getAdminSession(token: string) {
   await ensureDatabase()
   const result = await pool.query(
-    `SELECT s.token, s.user_id, s.expires_at, u.id, u.username, u.full_name, u.role, u.created_at, u.last_login_at
+    `SELECT s.token, s.user_id, s.expires_at, u.id, u.username, u.full_name, u.role, u.must_change_password, u.created_at, u.last_login_at
      FROM admin_sessions s JOIN admin_users u ON u.id = s.user_id
      WHERE s.token = $1 AND s.expires_at > NOW() LIMIT 1`,
     [token]

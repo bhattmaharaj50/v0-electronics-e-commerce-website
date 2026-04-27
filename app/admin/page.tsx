@@ -43,7 +43,11 @@ export default function AdminLoginPage() {
       })
       const payload = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(payload?.error || "Invalid username or password")
-      router.push("/admin/dashboard")
+      if (payload?.user?.mustChangePassword) {
+        router.push("/admin/change-password")
+      } else {
+        router.push("/admin/dashboard")
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid username or password")
       setLoading(false)
