@@ -133,11 +133,6 @@ export default function AdminLoginPage() {
               {loading ? "Signing in..." : "Sign In"}
             </button>
           </form>
-
-          <p className="mt-5 text-center text-xs text-muted-foreground">
-            Default account: <span className="font-mono text-foreground">admin</span> /{" "}
-            <span className="font-mono text-foreground">munex2024</span>
-          </p>
         </div>
       </div>
     </div>
