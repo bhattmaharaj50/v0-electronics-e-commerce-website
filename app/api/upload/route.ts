@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import path from "path"
-import { uploadPublicObject } from "@/lib/object-storage"
+import { uploadFile } from "@/lib/storage"
 import { authErrorResponse, requireAdmin } from "@/lib/auth"
 import { requireCsrf } from "@/lib/csrf"
 
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
-    const { publicUrl } = await uploadPublicObject({
+    const { publicUrl } = await uploadFile({
       buffer,
       contentType: file.type,
       filename: safeName,

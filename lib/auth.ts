@@ -63,6 +63,7 @@ export async function loginAdmin(username: string, password: string): Promise<Ad
     createdAt: user.createdAt,
     lastLoginAt: user.lastLoginAt,
     mustChangePassword: user.mustChangePassword,
+    hasRecoveryCode: user.hasRecoveryCode,
   }
 }
 
