@@ -317,7 +317,13 @@ export default function AdminDashboardPage() {
     setProductFormOpen(true)
   }
 
-  async function saveProduct(e: React.FormEvent) {
+  function openHomePreview() {
+    if (typeof window !== "undefined") {
+      window.open("/", "_blank", "noopener,noreferrer")
+    }
+  }
+
+  async function saveProduct(e: React.FormEvent, andPreview = false) {
     e.preventDefault()
     const product: Product = {
       ...productForm,
@@ -350,6 +356,7 @@ export default function AdminDashboardPage() {
       setProductFormOpen(false)
       await refreshStore()
       showToast(wasEditing ? `✓ "${product.name}" updated successfully` : `✓ "${product.name}" added successfully — now live on your store`)
+      if (andPreview) openHomePreview()
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Failed to save product", "error")
     }
@@ -447,12 +454,13 @@ export default function AdminDashboardPage() {
     showToast("Category deleted")
   }
 
-  async function saveSiteSettings(e: React.FormEvent) {
+  async function saveSiteSettings(e: React.FormEvent, andPreview = false) {
     e.preventDefault()
     try {
       await updateSettings(settingsForm)
       await refreshStore()
       showToast("✓ Homepage & site settings saved — changes are now live")
+      if (andPreview) openHomePreview()
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Failed to save settings", "error")
     }
@@ -1456,7 +1464,8 @@ export default function AdminDashboardPage() {
               </div>
             </section>
 
-            <div className="flex justify-end">
+            <div className="flex flex-wrap justify-end gap-3">
+              <button type="button" onClick={(e) => saveSiteSettings(e as unknown as React.FormEvent, true)} className="rounded-lg border border-border bg-secondary px-6 py-3 text-sm font-semibold text-foreground hover:bg-secondary/80">Save &amp; Preview Homepage</button>
               <button className="rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground">Save All Settings</button>
             </div>
           </form>
@@ -1613,7 +1622,7 @@ export default function AdminDashboardPage() {
               </div>
 
               <div className="md:col-span-2"><Label>Description *</Label><textarea required value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} className="min-h-32 w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" /></div>
-              <div className="md:col-span-2 flex justify-end gap-3"><button type="button" onClick={() => setProductFormOpen(false)} className="rounded-lg border border-border px-5 py-2.5 text-sm">Cancel</button><button className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">Save Product</button></div>
+              <div className="md:col-span-2 flex flex-wrap justify-end gap-3"><button type="button" onClick={() => setProductFormOpen(false)} className="rounded-lg border border-border px-5 py-2.5 text-sm">Cancel</button><button type="button" onClick={(e) => saveProduct(e as unknown as React.FormEvent, true)} className="rounded-lg border border-border bg-secondary px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-secondary/80">Save &amp; Preview Homepage</button><button className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">Save Product</button></div>
             </form>
           </div>
         </div>
