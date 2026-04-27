@@ -1,6 +1,8 @@
 import { Pool } from "pg"
 import { categories as defaultCategories, products as defaultProducts, type Product } from "@/lib/products"
 
+// ===== Types =====
+
 export interface Category {
   slug: string
   name: string
@@ -26,6 +28,8 @@ export interface SiteSettings {
   businessName: string
   heroGalleryImages: string
   heroGalleryVideos: string
+  brandLogos: string
+  brandsTitle: string
 }
 
 export interface OrderRecord {
@@ -64,6 +68,23 @@ export interface ProductReview {
   createdAt: string
 }
 
+export type AdminRole = "owner" | "staff"
+
+export interface AdminUser {
+  id: number
+  username: string
+  fullName: string
+  role: AdminRole
+  createdAt: string
+  lastLoginAt: string | null
+}
+
+export interface AdminSession {
+  token: string
+  userId: number
+  expiresAt: string
+}
+
 export interface PageView {
   path: string
   views: number
@@ -95,6 +116,22 @@ export interface TrafficAnalytics {
   dailySeries: Array<{ day: string; views: number }>
 }
 
+export interface SalesReport {
+  range: number
+  totalRevenue: number
+  paidRevenue: number
+  totalOrders: number
+  paidOrders: number
+  pendingOrders: number
+  averageOrderValue: number
+  revenueByDay: Array<{ day: string; revenue: number; orders: number }>
+  topProducts: Array<{ id: string; name: string; quantity: number; revenue: number }>
+  statusCounts: Record<string, number>
+  salesByCategory: Array<{ category: string; revenue: number; quantity: number }>
+}
+
+// ===== Defaults =====
+
 const defaultSettings: SiteSettings = {
   heroBadge: "Kenya's Trusted Electronics Store",
   heroTitle: "Premium Electronics, Delivered to Your Door",
@@ -114,14 +151,31 @@ const defaultSettings: SiteSettings = {
   businessName: "Munex Electronics",
   heroGalleryImages: "[]",
   heroGalleryVideos: "[]",
+  brandLogos: "[]",
+  brandsTitle: "Trusted Brands We Stock",
 }
+
+// ===== Pool =====
+
+const SCHEMA_VERSION = 2
+const ALL_TABLES = [
+  "admin_sessions",
+  "admin_users",
+  "page_views",
+  "ip_geo_cache",
+  "product_reviews",
+  "orders",
+  "products",
+  "categories",
+  "site_settings",
+  "schema_version",
+]
 
 const globalForDb = globalThis as unknown as { munexPool?: Pool; munexReady?: Promise<void> }
 
 function shouldUseSsl(url: string | undefined): boolean {
   if (!url) return false
   if (process.env.NODE_ENV === "production") return true
-  // Auto-enable SSL for hosted Postgres (Neon, Supabase, etc.) but not local
   if (/sslmode=require/i.test(url)) return true
   if (/\.neon\.tech|\.supabase\.co|\.aws\.neon\.|\.pooler\./i.test(url)) return true
   return false
@@ -139,9 +193,16 @@ export const pool =
 
 if (process.env.NODE_ENV !== "production") globalForDb.munexPool = pool
 
+// ===== Row mappers =====
+
 function toNumber(value: unknown): number {
   if (value === null || value === undefined) return 0
   return Number(value)
+}
+
+function toIso(value: any): string {
+  if (value instanceof Date) return value.toISOString()
+  return String(value)
 }
 
 function productFromRow(row: any): Product {
@@ -197,11 +258,6 @@ function orderFromRow(row: any): OrderRecord {
   }
 }
 
-function toIso(value: any): string {
-  if (value instanceof Date) return value.toISOString()
-  return String(value)
-}
-
 function reviewFromRow(row: any): ProductReview {
   return {
     id: Number(row.id),
@@ -212,6 +268,19 @@ function reviewFromRow(row: any): ProductReview {
     createdAt: toIso(row.created_at),
   }
 }
+
+function adminUserFromRow(row: any): AdminUser {
+  return {
+    id: Number(row.id),
+    username: row.username,
+    fullName: row.full_name || "",
+    role: row.role === "owner" ? "owner" : "staff",
+    createdAt: toIso(row.created_at),
+    lastLoginAt: row.last_login_at ? toIso(row.last_login_at) : null,
+  }
+}
+
+// ===== Schema setup (full reset on version mismatch) =====
 
 export async function ensureDatabase() {
   if (!process.env.DATABASE_URL) {
@@ -224,14 +293,35 @@ export async function ensureDatabase() {
 }
 
 async function setupDatabase() {
+  // Determine if we're on the new schema. If not, wipe everything and recreate.
+  await pool.query(`CREATE TABLE IF NOT EXISTS schema_version (version INT PRIMARY KEY)`)
+  const versionResult = await pool.query("SELECT version FROM schema_version LIMIT 1")
+  const currentVersion = versionResult.rows[0]?.version ?? 0
+
+  if (currentVersion !== SCHEMA_VERSION) {
+    console.log(`[db] Schema v${currentVersion} → v${SCHEMA_VERSION}. Performing full reset.`)
+    for (const table of ALL_TABLES) {
+      await pool.query(`DROP TABLE IF EXISTS ${table} CASCADE`)
+    }
+    await pool.query(`CREATE TABLE schema_version (version INT PRIMARY KEY)`)
+    await createSchema()
+    await seedDefaults()
+    await pool.query("INSERT INTO schema_version (version) VALUES ($1)", [SCHEMA_VERSION])
+    console.log(`[db] Schema v${SCHEMA_VERSION} ready.`)
+  }
+}
+
+async function createSchema() {
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS categories (
+    CREATE TABLE categories (
       slug TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      icon TEXT NOT NULL DEFAULT 'Package'
+      icon TEXT NOT NULL DEFAULT 'Package',
+      sort_order INT NOT NULL DEFAULT 100,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
 
-    CREATE TABLE IF NOT EXISTS products (
+    CREATE TABLE products (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       price NUMERIC NOT NULL DEFAULT 0,
@@ -250,10 +340,19 @@ async function setupDatabase() {
       featured BOOLEAN NOT NULL DEFAULT false,
       stock INTEGER NOT NULL DEFAULT 10,
       offer_type TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
 
-    CREATE TABLE IF NOT EXISTS orders (
+    CREATE INDEX idx_products_category ON products(category);
+    CREATE INDEX idx_products_offer ON products(offer_type);
+
+    CREATE TABLE site_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
+    CREATE TABLE orders (
       id SERIAL PRIMARY KEY,
       order_number TEXT UNIQUE NOT NULL,
       customer JSONB NOT NULL,
@@ -274,12 +373,10 @@ async function setupDatabase() {
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
 
-    CREATE TABLE IF NOT EXISTS site_settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    );
+    CREATE INDEX idx_orders_created ON orders(created_at DESC);
+    CREATE INDEX idx_orders_status ON orders(status);
 
-    CREATE TABLE IF NOT EXISTS product_reviews (
+    CREATE TABLE product_reviews (
       id SERIAL PRIMARY KEY,
       product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
@@ -288,7 +385,28 @@ async function setupDatabase() {
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
 
-    CREATE TABLE IF NOT EXISTS page_views (
+    CREATE INDEX idx_reviews_product ON product_reviews(product_id);
+
+    CREATE TABLE admin_users (
+      id SERIAL PRIMARY KEY,
+      username TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      full_name TEXT NOT NULL DEFAULT '',
+      role TEXT NOT NULL DEFAULT 'staff',
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      last_login_at TIMESTAMP
+    );
+
+    CREATE TABLE admin_sessions (
+      token TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
+      expires_at TIMESTAMP NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX idx_sessions_user ON admin_sessions(user_id);
+
+    CREATE TABLE page_views (
       id BIGSERIAL PRIMARY KEY,
       path TEXT NOT NULL,
       referrer TEXT,
@@ -301,92 +419,94 @@ async function setupDatabase() {
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
 
-    CREATE TABLE IF NOT EXISTS ip_geo_cache (
+    CREATE INDEX idx_page_views_created ON page_views(created_at DESC);
+    CREATE INDEX idx_page_views_session ON page_views(session_id);
+
+    CREATE TABLE ip_geo_cache (
       ip TEXT PRIMARY KEY,
       country TEXT,
       country_code TEXT,
       city TEXT,
       cached_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
-
-    CREATE INDEX IF NOT EXISTS idx_page_views_created ON page_views(created_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_page_views_session ON page_views(session_id);
-    CREATE INDEX IF NOT EXISTS idx_reviews_product ON product_reviews(product_id);
   `)
+}
 
-  await pool.query(`
-    ALTER TABLE products ADD COLUMN IF NOT EXISTS video_url TEXT;
-    ALTER TABLE products ADD COLUMN IF NOT EXISTS images JSONB NOT NULL DEFAULT '[]'::jsonb;
-    ALTER TABLE products ADD COLUMN IF NOT EXISTS color TEXT;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS pickup_location TEXT;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_whatsapp_url TEXT;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS ready_at TIMESTAMP;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS dispatched_at TIMESTAMP;
-  `)
-
-  // Always seed any missing default categories. Existing ones are preserved
-  // (ON CONFLICT DO NOTHING) so admin renames are kept; admins can still
-  // delete them, but they'll reappear on next boot.
-  for (const category of defaultCategories) {
+async function seedDefaults() {
+  for (const [index, category] of defaultCategories.entries()) {
     await pool.query(
-      "INSERT INTO categories (slug, name, icon) VALUES ($1, $2, $3) ON CONFLICT (slug) DO NOTHING",
-      [category.slug, category.name, category.icon]
+      "INSERT INTO categories (slug, name, icon, sort_order) VALUES ($1, $2, $3, $4)",
+      [category.slug, category.name, category.icon, index]
     )
   }
 
-  const productCount = await pool.query("SELECT COUNT(*)::int AS count FROM products")
-  if (productCount.rows[0].count === 0) {
-    for (const [index, product] of defaultProducts.entries()) {
-      const seededProduct = {
-        ...product,
-        stock: product.stock ?? 10,
-        offerType: product.offerType ?? (product.originalPrice ? (index % 3 === 0 ? "flash-sale" : index % 3 === 1 ? "deal-of-day" : "holiday-deal") : ""),
-      }
-
-      await pool.query(
-        `INSERT INTO products (
-          id, name, price, original_price, description, category, brand, size, color, image, images, video_url,
-          rating, reviews, badge, featured, stock, offer_type, updated_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,NOW())
-        ON CONFLICT (id) DO NOTHING`,
-        [
-          seededProduct.id,
-          seededProduct.name,
-          seededProduct.price,
-          seededProduct.originalPrice ?? null,
-          seededProduct.description,
-          seededProduct.category,
-          seededProduct.brand,
-          seededProduct.size ?? null,
-          seededProduct.color ?? null,
-          seededProduct.image,
-          JSON.stringify(seededProduct.images ?? []),
-          seededProduct.videoUrl ?? null,
-          seededProduct.rating,
-          seededProduct.reviews,
-          seededProduct.badge ?? null,
-          seededProduct.featured ?? false,
-          seededProduct.stock ?? 0,
-          seededProduct.offerType ?? "",
-        ]
-      )
+  for (const [index, product] of defaultProducts.entries()) {
+    const seededProduct = {
+      ...product,
+      stock: product.stock ?? 10,
+      offerType:
+        product.offerType ??
+        (product.originalPrice
+          ? index % 3 === 0
+            ? "flash-sale"
+            : index % 3 === 1
+              ? "deal-of-day"
+              : "holiday-deal"
+          : ""),
     }
+
+    await pool.query(
+      `INSERT INTO products (
+        id, name, price, original_price, description, category, brand, size, color, image, images, video_url,
+        rating, reviews, badge, featured, stock, offer_type
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+      [
+        seededProduct.id,
+        seededProduct.name,
+        seededProduct.price,
+        seededProduct.originalPrice ?? null,
+        seededProduct.description,
+        seededProduct.category,
+        seededProduct.brand,
+        seededProduct.size ?? null,
+        seededProduct.color ?? null,
+        seededProduct.image,
+        JSON.stringify(seededProduct.images ?? []),
+        seededProduct.videoUrl ?? null,
+        seededProduct.rating,
+        seededProduct.reviews,
+        seededProduct.badge ?? null,
+        seededProduct.featured ?? false,
+        seededProduct.stock,
+        seededProduct.offerType ?? "",
+      ]
+    )
   }
 
   for (const [key, value] of Object.entries(defaultSettings)) {
-    await pool.query(
-      "INSERT INTO site_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING",
-      [key, value]
-    )
+    await pool.query("INSERT INTO site_settings (key, value) VALUES ($1, $2)", [key, value])
   }
+
+  // Seed default admin (owner role): admin / munex2024
+  // Hashed lazily via bcrypt at module top level — but to avoid loading bcrypt
+  // here, we delegate this to lib/auth.ts on first request. Insert a marker row
+  // here so that lib/auth.ts can complete the bootstrap.
+  // Actually we can call bcrypt directly:
+  const bcrypt = await import("bcryptjs")
+  const hash = await bcrypt.hash("munex2024", 10)
+  await pool.query(
+    "INSERT INTO admin_users (username, password_hash, full_name, role) VALUES ($1, $2, $3, $4)",
+    ["admin", hash, "Owner", "owner"]
+  )
 }
+
+// ===== Store / admin data =====
 
 export async function getStoreData() {
   await ensureDatabase()
   const [productResult, categoryResult, settingsResult] = await Promise.all([
     pool.query("SELECT * FROM products ORDER BY updated_at DESC, name ASC"),
-    pool.query("SELECT * FROM categories ORDER BY name ASC"),
+    pool.query("SELECT * FROM categories ORDER BY sort_order ASC, name ASC"),
     pool.query("SELECT key, value FROM site_settings"),
   ])
 
@@ -397,7 +517,7 @@ export async function getStoreData() {
 
   return {
     products: productResult.rows.map(productFromRow),
-    categories: categoryResult.rows as Category[],
+    categories: categoryResult.rows.map((r) => ({ slug: r.slug, name: r.name, icon: r.icon })) as Category[],
     settings,
   }
 }
@@ -415,6 +535,8 @@ export async function getAdminData() {
     allReviews: reviewsResult.rows.map(reviewFromRow),
   }
 }
+
+// ===== Products =====
 
 export async function saveProduct(product: Product) {
   await ensureDatabase()
@@ -470,10 +592,13 @@ export async function deleteProduct(id: string) {
   await pool.query("DELETE FROM products WHERE id = $1", [id])
 }
 
+// ===== Categories =====
+
 export async function saveCategory(category: Category) {
   await ensureDatabase()
   await pool.query(
-    "INSERT INTO categories (slug, name, icon) VALUES ($1, $2, $3) ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, icon = EXCLUDED.icon",
+    `INSERT INTO categories (slug, name, icon) VALUES ($1, $2, $3)
+     ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, icon = EXCLUDED.icon`,
     [category.slug, category.name, category.icon]
   )
 }
@@ -483,15 +608,20 @@ export async function deleteCategory(slug: string) {
   await pool.query("DELETE FROM categories WHERE slug = $1", [slug])
 }
 
+// ===== Settings =====
+
 export async function saveSettings(settings: Partial<SiteSettings>) {
   await ensureDatabase()
   for (const [key, value] of Object.entries(settings)) {
     await pool.query(
-      "INSERT INTO site_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+      `INSERT INTO site_settings (key, value) VALUES ($1, $2)
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
       [key, String(value ?? "")]
     )
   }
 }
+
+// ===== Orders =====
 
 export async function createOrder(payload: Omit<OrderRecord, "id" | "createdAt" | "status">) {
   await ensureDatabase()
@@ -584,7 +714,7 @@ export async function markOrderDispatched(orderNumber: string, customerWhatsappU
   return orderFromRow(result.rows[0])
 }
 
-// ----- Reviews -----
+// ===== Reviews =====
 
 export async function saveReview(payload: { productId: string; name: string; rating: number; comment: string }) {
   await ensureDatabase()
@@ -656,7 +786,233 @@ async function refreshProductRating(productId: string) {
   }
 }
 
-// ----- Analytics -----
+// ===== Admin users =====
+
+export async function listAdminUsers(): Promise<AdminUser[]> {
+  await ensureDatabase()
+  const result = await pool.query(
+    "SELECT id, username, full_name, role, created_at, last_login_at FROM admin_users ORDER BY id ASC"
+  )
+  return result.rows.map(adminUserFromRow)
+}
+
+export async function getAdminUserByUsername(username: string) {
+  await ensureDatabase()
+  const result = await pool.query("SELECT * FROM admin_users WHERE username = $1 LIMIT 1", [username])
+  if (!result.rowCount) return null
+  const row = result.rows[0]
+  return { ...adminUserFromRow(row), passwordHash: row.password_hash as string }
+}
+
+export async function getAdminUserById(id: number) {
+  await ensureDatabase()
+  const result = await pool.query(
+    "SELECT id, username, full_name, role, created_at, last_login_at FROM admin_users WHERE id = $1 LIMIT 1",
+    [id]
+  )
+  if (!result.rowCount) return null
+  return adminUserFromRow(result.rows[0])
+}
+
+export async function createAdminUser(payload: {
+  username: string
+  passwordHash: string
+  fullName: string
+  role: AdminRole
+}) {
+  await ensureDatabase()
+  const result = await pool.query(
+    `INSERT INTO admin_users (username, password_hash, full_name, role)
+     VALUES ($1,$2,$3,$4) RETURNING id, username, full_name, role, created_at, last_login_at`,
+    [payload.username, payload.passwordHash, payload.fullName, payload.role]
+  )
+  return adminUserFromRow(result.rows[0])
+}
+
+export async function updateAdminUser(payload: {
+  id: number
+  fullName?: string
+  role?: AdminRole
+  passwordHash?: string
+}) {
+  await ensureDatabase()
+  const fields: string[] = []
+  const values: unknown[] = []
+  let i = 1
+  if (payload.fullName !== undefined) {
+    fields.push(`full_name = $${i++}`)
+    values.push(payload.fullName)
+  }
+  if (payload.role !== undefined) {
+    fields.push(`role = $${i++}`)
+    values.push(payload.role)
+  }
+  if (payload.passwordHash !== undefined) {
+    fields.push(`password_hash = $${i++}`)
+    values.push(payload.passwordHash)
+  }
+  if (fields.length === 0) return null
+  values.push(payload.id)
+  const result = await pool.query(
+    `UPDATE admin_users SET ${fields.join(", ")} WHERE id = $${i}
+     RETURNING id, username, full_name, role, created_at, last_login_at`,
+    values
+  )
+  if (!result.rowCount) return null
+  return adminUserFromRow(result.rows[0])
+}
+
+export async function deleteAdminUser(id: number) {
+  await ensureDatabase()
+  await pool.query("DELETE FROM admin_users WHERE id = $1", [id])
+}
+
+export async function touchAdminLogin(id: number) {
+  await ensureDatabase()
+  await pool.query("UPDATE admin_users SET last_login_at = NOW() WHERE id = $1", [id])
+}
+
+// ===== Admin sessions =====
+
+export async function createAdminSession(userId: number, token: string, expiresAt: Date) {
+  await ensureDatabase()
+  await pool.query(
+    "INSERT INTO admin_sessions (token, user_id, expires_at) VALUES ($1, $2, $3)",
+    [token, userId, expiresAt]
+  )
+}
+
+export async function getAdminSession(token: string) {
+  await ensureDatabase()
+  const result = await pool.query(
+    `SELECT s.token, s.user_id, s.expires_at, u.id, u.username, u.full_name, u.role, u.created_at, u.last_login_at
+     FROM admin_sessions s JOIN admin_users u ON u.id = s.user_id
+     WHERE s.token = $1 AND s.expires_at > NOW() LIMIT 1`,
+    [token]
+  )
+  if (!result.rowCount) return null
+  const row = result.rows[0]
+  return {
+    user: adminUserFromRow(row),
+    session: { token: row.token, userId: Number(row.user_id), expiresAt: toIso(row.expires_at) } as AdminSession,
+  }
+}
+
+export async function deleteAdminSession(token: string) {
+  await ensureDatabase()
+  await pool.query("DELETE FROM admin_sessions WHERE token = $1", [token])
+}
+
+export async function pruneExpiredSessions() {
+  await ensureDatabase()
+  await pool.query("DELETE FROM admin_sessions WHERE expires_at < NOW()")
+}
+
+// ===== Sales reports =====
+
+export async function getSalesReport(rangeDays: number): Promise<SalesReport> {
+  await ensureDatabase()
+  const days = Math.max(1, Math.min(365, Math.round(rangeDays)))
+
+  const since = `NOW() - INTERVAL '${days} days'`
+
+  const [totals, byDayRes, topProductsRes, statusRes, byCategoryRes] = await Promise.all([
+    pool.query(`
+      SELECT
+        COALESCE(SUM(total), 0)::float AS revenue_total,
+        COALESCE(SUM(CASE WHEN status IN ('paid','confirmed','processing','ready','dispatched','delivered') THEN total ELSE 0 END), 0)::float AS revenue_paid,
+        COUNT(*)::int AS orders_total,
+        COUNT(*) FILTER (WHERE status IN ('paid','confirmed','processing','ready','dispatched','delivered'))::int AS orders_paid,
+        COUNT(*) FILTER (WHERE status IN ('new','pending_payment'))::int AS orders_pending
+      FROM orders
+      WHERE created_at > ${since}
+    `),
+    pool.query(`
+      SELECT TO_CHAR(date_trunc('day', created_at), 'YYYY-MM-DD') AS day,
+             COALESCE(SUM(total), 0)::float AS revenue,
+             COUNT(*)::int AS orders
+      FROM orders
+      WHERE created_at > ${since}
+      GROUP BY day
+      ORDER BY day ASC
+    `),
+    pool.query(`
+      SELECT v->'product'->>'id' AS id,
+             v->'product'->>'name' AS name,
+             SUM(COALESCE((v->>'quantity')::int, 0))::int AS quantity,
+             SUM(COALESCE((v->>'quantity')::int, 0) * COALESCE((v->'product'->>'price')::numeric, 0))::float AS revenue
+      FROM orders
+      CROSS JOIN LATERAL jsonb_array_elements(orders.items) AS v
+      WHERE orders.created_at > ${since}
+      GROUP BY v->'product'->>'id', v->'product'->>'name'
+      ORDER BY revenue DESC
+      LIMIT 10
+    `),
+    pool.query(`
+      SELECT status, COUNT(*)::int AS count
+      FROM orders
+      WHERE created_at > ${since}
+      GROUP BY status
+    `),
+    pool.query(`
+      SELECT v->'product'->>'category' AS category,
+             SUM(COALESCE((v->>'quantity')::int, 0))::int AS quantity,
+             SUM(COALESCE((v->>'quantity')::int, 0) * COALESCE((v->'product'->>'price')::numeric, 0))::float AS revenue
+      FROM orders
+      CROSS JOIN LATERAL jsonb_array_elements(orders.items) AS v
+      WHERE orders.created_at > ${since}
+      GROUP BY v->'product'->>'category'
+      ORDER BY revenue DESC
+    `),
+  ])
+
+  const dayMap = new Map<string, { revenue: number; orders: number }>()
+  for (const row of byDayRes.rows) {
+    dayMap.set(row.day, { revenue: Number(row.revenue) || 0, orders: Number(row.orders) || 0 })
+  }
+  const revenueByDay: Array<{ day: string; revenue: number; orders: number }> = []
+  const today = new Date()
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today)
+    d.setUTCHours(0, 0, 0, 0)
+    d.setUTCDate(d.getUTCDate() - i)
+    const key = d.toISOString().slice(0, 10)
+    const v = dayMap.get(key) ?? { revenue: 0, orders: 0 }
+    revenueByDay.push({ day: key, revenue: v.revenue, orders: v.orders })
+  }
+
+  const statusCounts: Record<string, number> = {}
+  for (const r of statusRes.rows) statusCounts[r.status] = Number(r.count) || 0
+
+  const t = totals.rows[0]
+  const ordersTotal = Number(t.orders_total) || 0
+  const revenueTotal = Number(t.revenue_total) || 0
+
+  return {
+    range: days,
+    totalRevenue: revenueTotal,
+    paidRevenue: Number(t.revenue_paid) || 0,
+    totalOrders: ordersTotal,
+    paidOrders: Number(t.orders_paid) || 0,
+    pendingOrders: Number(t.orders_pending) || 0,
+    averageOrderValue: ordersTotal > 0 ? revenueTotal / ordersTotal : 0,
+    revenueByDay,
+    topProducts: topProductsRes.rows.map((r) => ({
+      id: r.id || "",
+      name: r.name || "Unknown product",
+      quantity: Number(r.quantity) || 0,
+      revenue: Number(r.revenue) || 0,
+    })),
+    statusCounts,
+    salesByCategory: byCategoryRes.rows.map((r) => ({
+      category: r.category || "uncategorized",
+      revenue: Number(r.revenue) || 0,
+      quantity: Number(r.quantity) || 0,
+    })),
+  }
+}
+
+// ===== Analytics (page views) =====
 
 export async function recordPageView(payload: {
   path: string
@@ -724,8 +1080,6 @@ export function emptyAnalytics(): TrafficAnalytics {
   }
 }
 
-// Run a SQL query with a timeout fallback, so one slow/failed query never
-// blocks the whole analytics dashboard. Returns `fallback` on error/timeout.
 async function safeAnalyticsQuery<T>(
   label: string,
   fn: () => Promise<T>,
@@ -748,7 +1102,6 @@ async function safeAnalyticsQuery<T>(
 export async function getTrafficAnalytics(): Promise<TrafficAnalytics> {
   await ensureDatabase()
 
-  // Exclude admin/api paths from analytics so they don't pollute numbers
   const exclude = "path NOT LIKE '/admin%' AND path NOT LIKE '/api%'"
 
   const totals = safeAnalyticsQuery(
@@ -796,39 +1149,22 @@ export async function getTrafficAnalytics(): Promise<TrafficAnalytics> {
     () => pool.query(`SELECT path, country, city, referrer, user_agent, created_at FROM page_views WHERE ${exclude} ORDER BY created_at DESC LIMIT 25`),
     { rows: [] } as any,
   )
-  // Daily series: prefer a lightweight client-side roll-up (no LEFT JOIN /
-  // generate_series) which is dramatically faster on serverless and degrades
-  // gracefully if it times out.
   const daily = safeAnalyticsQuery(
     "dailySeries",
-    async () => {
-      const res = await pool.query(
-        `SELECT TO_CHAR(date_trunc('day', created_at), 'YYYY-MM-DD') AS day, COUNT(*)::int AS views
-         FROM page_views
-         WHERE ${exclude} AND created_at > NOW() - INTERVAL '14 days'
-         GROUP BY day
-         ORDER BY day ASC`,
-      )
-      return res
-    },
+    () => pool.query(
+      `SELECT TO_CHAR(date_trunc('day', created_at), 'YYYY-MM-DD') AS day, COUNT(*)::int AS views
+       FROM page_views
+       WHERE ${exclude} AND created_at > NOW() - INTERVAL '14 days'
+       GROUP BY day
+       ORDER BY day ASC`,
+    ),
     { rows: [] } as any,
   )
 
-  const [
-    totalsR,
-    dayR,
-    weekR,
-    monthR,
-    pagesR,
-    countriesR,
-    citiesR,
-    referrersR,
-    recentR,
-    dailyR,
-  ] = await Promise.all([totals, day, week, month, pages, countries, cities, referrers, recent, daily])
+  const [totalsR, dayR, weekR, monthR, pagesR, countriesR, citiesR, referrersR, recentR, dailyR] = await Promise.all([
+    totals, day, week, month, pages, countries, cities, referrers, recent, daily,
+  ])
 
-  // Build a complete 14-day series so the chart always has a full x-axis,
-  // even if some days had zero traffic.
   const dailyMap = new Map<string, number>()
   for (const r of dailyR.rows as Array<{ day: string; views: number }>) {
     dailyMap.set(r.day, Number(r.views) || 0)

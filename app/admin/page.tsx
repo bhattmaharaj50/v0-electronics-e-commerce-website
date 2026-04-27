@@ -4,8 +4,6 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Zap, Eye, EyeOff, Lock } from "lucide-react"
 
-const AUTH_KEY = "munex_admin_auth"
-
 export default function AdminLoginPage() {
   const router = useRouter()
   const [username, setUsername] = useState("")
@@ -13,13 +11,23 @@ export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [checking, setChecking] = useState(true)
 
+  // If already logged in (cookie session), jump straight to the dashboard.
   useEffect(() => {
-    try {
-      if (sessionStorage.getItem(AUTH_KEY) === "true") {
-        router.replace("/admin/dashboard")
-      }
-    } catch {}
+    let cancelled = false
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((res) => {
+        if (cancelled) return
+        if (res.ok) router.replace("/admin/dashboard")
+        else setChecking(false)
+      })
+      .catch(() => {
+        if (!cancelled) setChecking(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [router])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -28,19 +36,26 @@ export default function AdminLoginPage() {
     setError("")
 
     try {
-      const response = await fetch("/api/admin/login", {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       })
-
-      if (!response.ok) throw new Error("Invalid username or password")
-      sessionStorage.setItem(AUTH_KEY, "true")
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(payload?.error || "Invalid username or password")
       router.push("/admin/dashboard")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid username or password")
       setLoading(false)
     }
+  }
+
+  if (checking) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-sm text-muted-foreground">Loading…</div>
+      </div>
+    )
   }
 
   return (
@@ -120,7 +135,8 @@ export default function AdminLoginPage() {
           </form>
 
           <p className="mt-5 text-center text-xs text-muted-foreground">
-            Contact your administrator if you need access.
+            Default account: <span className="font-mono text-foreground">admin</span> /{" "}
+            <span className="font-mono text-foreground">munex2024</span>
           </p>
         </div>
       </div>

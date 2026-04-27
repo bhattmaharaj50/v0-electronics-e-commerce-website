@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   Activity,
+  BarChart3,
   Check,
   Gift,
   Image as ImageIcon,
@@ -16,23 +17,47 @@ import {
   Plus,
   Search,
   Settings,
+  ShieldCheck,
   ShoppingBag,
   Star,
   Tag,
   Trash2,
   Truck,
   Upload,
+  Users,
   Video,
   X,
   Zap,
 } from "lucide-react"
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts"
 import { useProductStore, type Category, type SiteSettings } from "@/lib/product-store"
 import type { Product } from "@/lib/products"
 import { formatPrice } from "@/lib/products"
 import { AdminProductPreview } from "@/components/admin-product-preview"
 
-const AUTH_KEY = "munex_admin_auth"
 const ORDER_STATUSES = ["new", "pending_payment", "paid", "confirmed", "processing", "ready", "dispatched", "delivered", "cancelled"]
+const STATUS_COLORS: Record<string, string> = {
+  new: "#ef4444",
+  pending_payment: "#f97316",
+  paid: "#22c55e",
+  confirmed: "#10b981",
+  processing: "#3b82f6",
+  ready: "#8b5cf6",
+  dispatched: "#06b6d4",
+  delivered: "#16a34a",
+  cancelled: "#6b7280",
+}
 const OFFER_TYPES = [
   { value: "", label: "No offer" },
   { value: "flash-sale", label: "Flash sale" },
@@ -83,7 +108,32 @@ interface AnalyticsData {
   dailySeries: Array<{ day: string; views: number }>
 }
 
-type Tab = "overview" | "products" | "categories" | "orders" | "offers" | "reviews" | "analytics" | "settings"
+type Tab = "overview" | "products" | "categories" | "orders" | "offers" | "reviews" | "reports" | "analytics" | "admins" | "settings"
+
+type AdminRole = "owner" | "staff"
+
+interface AdminUserItem {
+  id: number
+  username: string
+  fullName: string
+  role: AdminRole
+  createdAt: string
+  lastLoginAt: string | null
+}
+
+interface SalesReportData {
+  range: number
+  totalRevenue: number
+  paidRevenue: number
+  totalOrders: number
+  paidOrders: number
+  pendingOrders: number
+  averageOrderValue: number
+  revenueByDay: Array<{ day: string; revenue: number; orders: number }>
+  topProducts: Array<{ id: string; name: string; quantity: number; revenue: number }>
+  statusCounts: Record<string, number>
+  salesByCategory: Array<{ category: string; revenue: number; quantity: number }>
+}
 
 const emptyProduct: Product = {
   id: "",
@@ -158,11 +208,28 @@ export default function AdminDashboardPage() {
   } = useProductStore()
 
   const [tab, setTab] = useState<Tab>("overview")
+  const [currentUser, setCurrentUser] = useState<AdminUserItem | null>(null)
   const [orders, setOrders] = useState<OrderRecord[]>([])
   const [allReviews, setAllReviews] = useState<ReviewItem[]>([])
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
   const [analyticsError, setAnalyticsError] = useState<string | null>(null)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
+  const [report, setReport] = useState<SalesReportData | null>(null)
+  const [reportRange, setReportRange] = useState<number>(30)
+  const [reportLoading, setReportLoading] = useState(false)
+  const [reportError, setReportError] = useState<string | null>(null)
+  const [adminUsers, setAdminUsers] = useState<AdminUserItem[]>([])
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false)
+  const [adminUsersError, setAdminUsersError] = useState<string | null>(null)
+  const [adminFormOpen, setAdminFormOpen] = useState(false)
+  const [editingAdmin, setEditingAdmin] = useState<AdminUserItem | null>(null)
+  const [adminForm, setAdminForm] = useState<{ username: string; fullName: string; password: string; role: AdminRole }>({
+    username: "",
+    fullName: "",
+    password: "",
+    role: "staff",
+  })
+  const [savingAdmin, setSavingAdmin] = useState(false)
   const [adminDataError, setAdminDataError] = useState<string | null>(null)
   const [adminDataLoading, setAdminDataLoading] = useState(false)
   const [search, setSearch] = useState("")
@@ -199,10 +266,22 @@ export default function AdminDashboardPage() {
   const [offerProductPicker, setOfferProductPicker] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    try {
-      if (sessionStorage.getItem(AUTH_KEY) !== "true") router.replace("/admin")
-    } catch {
-      router.replace("/admin")
+    let cancelled = false
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then(async (res) => {
+        if (cancelled) return
+        if (!res.ok) {
+          router.replace("/admin")
+          return
+        }
+        const payload = await res.json().catch(() => ({}))
+        if (payload?.user) setCurrentUser(payload.user as AdminUserItem)
+      })
+      .catch(() => {
+        if (!cancelled) router.replace("/admin")
+      })
+    return () => {
+      cancelled = true
     }
   }, [router])
 
@@ -216,7 +295,13 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (tab === "analytics") loadAnalytics()
+    if (tab === "reports") loadReport(reportRange)
+    if (tab === "admins") loadAdminUsers()
   }, [tab])
+
+  useEffect(() => {
+    if (tab === "reports") loadReport(reportRange)
+  }, [reportRange])
 
   async function loadAdminData() {
     setAdminDataLoading(true)
@@ -281,9 +366,101 @@ export default function AdminDashboardPage() {
     setTimeout(() => setToast(null), duration)
   }
 
-  function logout() {
-    sessionStorage.removeItem(AUTH_KEY)
+  async function logout() {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" })
+    } catch {}
     router.push("/admin")
+  }
+
+  async function loadReport(range: number) {
+    setReportLoading(true)
+    setReportError(null)
+    try {
+      const res = await fetch(`/api/admin/reports?range=${range}`, { cache: "no-store" })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(payload?.error || `HTTP ${res.status}`)
+      setReport(payload.report as SalesReportData)
+    } catch (err) {
+      setReportError(err instanceof Error ? err.message : "Unable to load report")
+      setReport(null)
+    } finally {
+      setReportLoading(false)
+    }
+  }
+
+  async function loadAdminUsers() {
+    setAdminUsersLoading(true)
+    setAdminUsersError(null)
+    try {
+      const res = await fetch("/api/admin/users", { cache: "no-store" })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(payload?.error || `HTTP ${res.status}`)
+      setAdminUsers((payload.users || []) as AdminUserItem[])
+    } catch (err) {
+      setAdminUsersError(err instanceof Error ? err.message : "Unable to load admins")
+    } finally {
+      setAdminUsersLoading(false)
+    }
+  }
+
+  function openAddAdmin() {
+    setEditingAdmin(null)
+    setAdminForm({ username: "", fullName: "", password: "", role: "staff" })
+    setAdminFormOpen(true)
+  }
+
+  function openEditAdmin(user: AdminUserItem) {
+    setEditingAdmin(user)
+    setAdminForm({ username: user.username, fullName: user.fullName, password: "", role: user.role })
+    setAdminFormOpen(true)
+  }
+
+  async function saveAdmin(e: React.FormEvent) {
+    e.preventDefault()
+    setSavingAdmin(true)
+    try {
+      if (editingAdmin) {
+        const body: Record<string, unknown> = { id: editingAdmin.id, fullName: adminForm.fullName, role: adminForm.role }
+        if (adminForm.password) body.password = adminForm.password
+        const res = await fetch("/api/admin/users", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+        const payload = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(payload?.error || "Update failed")
+        showToast(`✓ ${adminForm.username || editingAdmin.username} updated`)
+      } else {
+        const res = await fetch("/api/admin/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(adminForm),
+        })
+        const payload = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(payload?.error || "Create failed")
+        showToast(`✓ Admin "${adminForm.username}" created`)
+      }
+      setAdminFormOpen(false)
+      await loadAdminUsers()
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Save failed", "error")
+    } finally {
+      setSavingAdmin(false)
+    }
+  }
+
+  async function removeAdmin(user: AdminUserItem) {
+    if (!confirm(`Delete admin "${user.username}"? This cannot be undone.`)) return
+    try {
+      const res = await fetch(`/api/admin/users?id=${user.id}`, { method: "DELETE" })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(payload?.error || "Delete failed")
+      showToast(`Admin "${user.username}" deleted`)
+      await loadAdminUsers()
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Delete failed", "error")
+    }
   }
 
   const filteredProducts = useMemo(() => {
@@ -732,7 +909,11 @@ export default function AdminDashboardPage() {
     { id: "orders", label: "Orders", icon: <ShoppingBag className="h-4 w-4" /> },
     { id: "offers", label: "Offers", icon: <Gift className="h-4 w-4" /> },
     { id: "reviews", label: "Reviews", icon: <Star className="h-4 w-4" /> },
+    { id: "reports", label: "Sales Reports", icon: <BarChart3 className="h-4 w-4" /> },
     { id: "analytics", label: "Analytics", icon: <Activity className="h-4 w-4" /> },
+    ...(currentUser?.role === "owner"
+      ? ([{ id: "admins" as Tab, label: "Admin Users", icon: <ShieldCheck className="h-4 w-4" /> }])
+      : []),
     { id: "settings", label: "Homepage & Settings", icon: <Settings className="h-4 w-4" /> },
   ]
 
@@ -765,6 +946,15 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {currentUser && (
+              <span className="hidden items-center gap-1.5 rounded-lg border border-border bg-secondary px-2.5 py-1.5 text-xs font-medium text-muted-foreground sm:inline-flex">
+                <Users className="h-3.5 w-3.5" />
+                {currentUser.username}
+                <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${currentUser.role === "owner" ? "bg-primary/20 text-primary" : "bg-muted text-foreground/70"}`}>
+                  {currentUser.role}
+                </span>
+              </span>
+            )}
             <a href="/" className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary">View Store</a>
             <button onClick={logout} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary">
               <LogOut className="h-3.5 w-3.5" /> Logout
@@ -1183,6 +1373,235 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
+        {tab === "reports" && (
+          <div className="grid gap-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-foreground">Sales Reports</h2>
+                <p className="text-xs text-muted-foreground">Revenue, top products, and order trends over the selected period.</p>
+              </div>
+              <div className="flex gap-2 rounded-lg border border-border bg-card p-1">
+                {[7, 30, 90, 365].map((days) => (
+                  <button
+                    key={days}
+                    onClick={() => setReportRange(days)}
+                    className={`rounded-md px-3 py-1.5 text-xs font-semibold ${reportRange === days ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    {days === 365 ? "1 year" : `${days} days`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {reportError && (
+              <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-500">
+                {reportError}
+              </div>
+            )}
+
+            {reportLoading && !report ? (
+              <div className="rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">Loading report…</div>
+            ) : report ? (
+              <>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <Stat title={`Revenue (${report.range}d)`} value={formatPrice(report.totalRevenue)} />
+                  <Stat title="Confirmed Revenue" value={formatPrice(report.paidRevenue)} />
+                  <Stat title="Orders" value={report.totalOrders} />
+                  <Stat title="Avg Order Value" value={formatPrice(Math.round(report.averageOrderValue))} />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Stat title="Paid / Confirmed" value={report.paidOrders} />
+                  <Stat title="Pending" value={report.pendingOrders} tone={report.pendingOrders ? "warning" : "normal"} />
+                  <Stat title="Other statuses" value={Math.max(0, report.totalOrders - report.paidOrders - report.pendingOrders)} />
+                </div>
+
+                <section className="rounded-xl border border-border bg-card p-5">
+                  <h3 className="mb-3 text-base font-bold text-foreground">Daily Revenue</h3>
+                  {report.revenueByDay.every((d) => d.revenue === 0) ? (
+                    <p className="py-10 text-center text-sm text-muted-foreground">No revenue recorded in this period yet.</p>
+                  ) : (
+                    <div className="h-72 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={report.revenueByDay}>
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                          <XAxis dataKey="day" tick={{ fontSize: 10 }} interval={Math.max(0, Math.floor(report.revenueByDay.length / 8) - 1)} />
+                          <YAxis tick={{ fontSize: 10 }} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
+                          <Tooltip formatter={(value: number) => formatPrice(value)} />
+                          <Bar dataKey="revenue" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </section>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <section className="rounded-xl border border-border bg-card p-5">
+                    <h3 className="mb-3 text-base font-bold text-foreground">Top Products</h3>
+                    {report.topProducts.length === 0 ? (
+                      <p className="py-6 text-center text-sm text-muted-foreground">No sales recorded yet.</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-border text-left text-xs uppercase text-muted-foreground">
+                              <th className="py-2">Product</th>
+                              <th className="py-2 text-right">Qty</th>
+                              <th className="py-2 text-right">Revenue</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {report.topProducts.map((p) => (
+                              <tr key={p.id || p.name} className="border-b border-border/50">
+                                <td className="py-2 pr-2 text-foreground">{p.name}</td>
+                                <td className="py-2 text-right text-muted-foreground">{p.quantity}</td>
+                                <td className="py-2 text-right font-semibold text-foreground">{formatPrice(p.revenue)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="rounded-xl border border-border bg-card p-5">
+                    <h3 className="mb-3 text-base font-bold text-foreground">Order Status Breakdown</h3>
+                    {Object.keys(report.statusCounts).length === 0 ? (
+                      <p className="py-6 text-center text-sm text-muted-foreground">No orders to break down.</p>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        {Object.entries(report.statusCounts).map(([status, count]) => (
+                          <div key={status} className="rounded-lg border border-border bg-secondary p-3">
+                            <div className="text-xs uppercase tracking-wide text-muted-foreground" style={{ color: STATUS_COLORS[status] || undefined }}>
+                              {status.replace(/_/g, " ")}
+                            </div>
+                            <div className="mt-1 text-2xl font-bold text-foreground">{count}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                </div>
+
+                <section className="rounded-xl border border-border bg-card p-5">
+                  <h3 className="mb-3 text-base font-bold text-foreground">Sales by Category</h3>
+                  {report.salesByCategory.length === 0 ? (
+                    <p className="py-6 text-center text-sm text-muted-foreground">No category sales yet.</p>
+                  ) : (
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie data={report.salesByCategory} dataKey="revenue" nameKey="category" outerRadius={90} label={(entry: { category: string }) => entry.category}>
+                              {report.salesByCategory.map((_, i) => (
+                                <Cell key={i} fill={[
+                                  "#22c55e", "#3b82f6", "#8b5cf6", "#f97316",
+                                  "#ec4899", "#06b6d4", "#eab308", "#ef4444",
+                                  "#14b8a6", "#a855f7",
+                                ][i % 10]} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(value: number) => formatPrice(value)} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-border text-left text-xs uppercase text-muted-foreground">
+                              <th className="py-2">Category</th>
+                              <th className="py-2 text-right">Qty</th>
+                              <th className="py-2 text-right">Revenue</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {report.salesByCategory.map((row) => (
+                              <tr key={row.category} className="border-b border-border/50">
+                                <td className="py-2 text-foreground capitalize">{row.category}</td>
+                                <td className="py-2 text-right text-muted-foreground">{row.quantity}</td>
+                                <td className="py-2 text-right font-semibold text-foreground">{formatPrice(row.revenue)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              </>
+            ) : null}
+          </div>
+        )}
+
+        {tab === "admins" && currentUser?.role === "owner" && (
+          <div className="grid gap-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-foreground">Admin Users</h2>
+                <p className="text-xs text-muted-foreground">Add, edit, or remove users who can sign in to this dashboard. Owners can manage other admins; staff can only sign in.</p>
+              </div>
+              <button onClick={openAddAdmin} className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90">
+                <Plus className="h-4 w-4" /> Add admin
+              </button>
+            </div>
+
+            {adminUsersError && (
+              <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-500">{adminUsersError}</div>
+            )}
+
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
+              {adminUsersLoading && adminUsers.length === 0 ? (
+                <p className="p-6 text-center text-sm text-muted-foreground">Loading…</p>
+              ) : adminUsers.length === 0 ? (
+                <p className="p-6 text-center text-sm text-muted-foreground">No admins yet.</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-secondary/40 text-left text-xs uppercase text-muted-foreground">
+                      <th className="px-4 py-3">Username</th>
+                      <th className="px-4 py-3">Full name</th>
+                      <th className="px-4 py-3">Role</th>
+                      <th className="px-4 py-3">Last login</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminUsers.map((u) => (
+                      <tr key={u.id} className="border-b border-border/50 last:border-0">
+                        <td className="px-4 py-3 font-semibold text-foreground">
+                          {u.username}
+                          {u.id === currentUser?.id && <span className="ml-2 rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold text-primary">YOU</span>}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">{u.fullName || "—"}</td>
+                        <td className="px-4 py-3">
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-bold uppercase ${u.role === "owner" ? "bg-primary/20 text-primary" : "bg-secondary text-foreground"}`}>
+                            {u.role}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">
+                          {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "Never"}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => openEditAdmin(u)} className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-secondary">
+                              <Pencil className="inline h-3 w-3" /> Edit
+                            </button>
+                            {u.id !== currentUser?.id && (
+                              <button onClick={() => removeAdmin(u)} className="rounded-lg border border-red-500/40 px-2.5 py-1 text-xs font-medium text-red-500 hover:bg-red-500/10">
+                                <Trash2 className="inline h-3 w-3" /> Delete
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
+
         {tab === "settings" && (
           <form onSubmit={saveSiteSettings} className="grid gap-6">
             <section className="rounded-xl border border-border bg-card p-5">
@@ -1472,6 +1891,67 @@ export default function AdminDashboardPage() {
           </form>
         )}
       </div>
+
+      {adminFormOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+          <form onSubmit={saveAdmin} className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-foreground">{editingAdmin ? `Edit ${editingAdmin.username}` : "Add admin"}</h2>
+              <button type="button" onClick={() => setAdminFormOpen(false)}><X className="h-5 w-5" /></button>
+            </div>
+            <div className="grid gap-3">
+              <div>
+                <Label>Username</Label>
+                <Input
+                  required
+                  disabled={!!editingAdmin}
+                  value={adminForm.username}
+                  onChange={(e) => setAdminForm({ ...adminForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, "") })}
+                  placeholder="e.g. mary"
+                  minLength={3}
+                />
+                {editingAdmin && <p className="mt-1 text-xs text-muted-foreground">Username can't be changed.</p>}
+              </div>
+              <div>
+                <Label>Full name (optional)</Label>
+                <Input
+                  value={adminForm.fullName}
+                  onChange={(e) => setAdminForm({ ...adminForm, fullName: e.target.value })}
+                  placeholder="e.g. Mary Wanjiku"
+                />
+              </div>
+              <div>
+                <Label>{editingAdmin ? "New password (leave blank to keep current)" : "Password"}</Label>
+                <Input
+                  type="password"
+                  required={!editingAdmin}
+                  value={adminForm.password}
+                  onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })}
+                  placeholder="Min 6 characters"
+                  minLength={6}
+                />
+              </div>
+              <div>
+                <Label>Role</Label>
+                <select
+                  value={adminForm.role}
+                  onChange={(e) => setAdminForm({ ...adminForm, role: e.target.value === "owner" ? "owner" : "staff" })}
+                  className="h-10 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="staff">Staff — can manage products, orders, settings</option>
+                  <option value="owner">Owner — can also manage admins</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-3">
+              <button type="button" onClick={() => setAdminFormOpen(false)} className="rounded-lg border border-border px-5 py-2.5 text-sm">Cancel</button>
+              <button type="submit" disabled={savingAdmin} className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">
+                {savingAdmin ? "Saving…" : editingAdmin ? "Save changes" : "Create admin"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {reviewAddOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { emptyAnalytics, getTrafficAnalytics } from "@/lib/db"
+import { authErrorResponse, requireAdmin } from "@/lib/auth"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -13,11 +14,14 @@ const NO_STORE_HEADERS = {
 
 export async function GET() {
   try {
+    await requireAdmin()
     const analytics = await getTrafficAnalytics()
     return NextResponse.json({ analytics }, { headers: NO_STORE_HEADERS })
   } catch (error) {
-    // Never 500 the dashboard for an analytics fetch — return an empty
-    // dataset plus a warning so the UI can still render the tab.
+    if ((error as any)?.status === 401 || (error as any)?.status === 403) {
+      const { status, body } = authErrorResponse(error)
+      return NextResponse.json(body, { status })
+    }
     const message = error instanceof Error ? error.message : "Unable to load analytics"
     console.error("[admin/analytics] route error:", message)
     return NextResponse.json(

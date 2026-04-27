@@ -16,6 +16,7 @@ import {
   saveSettings,
   updateOrderStatus,
 } from "@/lib/db"
+import { authErrorResponse, requireAdmin } from "@/lib/auth"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -29,10 +30,13 @@ const NO_STORE_HEADERS = {
 
 export async function GET() {
   try {
+    await requireAdmin()
     return NextResponse.json(await getAdminData(), { headers: NO_STORE_HEADERS })
   } catch (error) {
-    // Soft-fall back to store-only data so the dashboard renders products,
-    // categories, and settings even if the orders/reviews queries fail.
+    if ((error as any)?.status === 401 || (error as any)?.status === 403) {
+      const { status, body } = authErrorResponse(error)
+      return NextResponse.json(body, { status, headers: NO_STORE_HEADERS })
+    }
     const message = error instanceof Error ? error.message : "Unable to load admin data"
     console.error("[admin/data] route error:", message)
     try {
@@ -51,6 +55,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    await requireAdmin()
     const body = await request.json()
 
     if (body.action === "saveProduct") await saveProduct(body.product)
@@ -80,6 +85,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json(await getAdminData(), { headers: NO_STORE_HEADERS })
   } catch (error) {
+    if ((error as any)?.status === 401 || (error as any)?.status === 403) {
+      const { status, body } = authErrorResponse(error)
+      return NextResponse.json(body, { status })
+    }
     console.error(error)
     return NextResponse.json({ error: error instanceof Error ? error.message : "Admin action failed" }, { status: 500 })
   }
