@@ -162,6 +162,8 @@ export default function AdminDashboardPage() {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
   const [analyticsError, setAnalyticsError] = useState<string | null>(null)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
+  const [adminDataError, setAdminDataError] = useState<string | null>(null)
+  const [adminDataLoading, setAdminDataLoading] = useState(false)
   const [search, setSearch] = useState("")
   const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(null)
   const [productFormOpen, setProductFormOpen] = useState(false)
@@ -208,7 +210,7 @@ export default function AdminDashboardPage() {
   }, [settings])
 
   useEffect(() => {
-    loadAdminData().catch((error) => showToast(error.message))
+    loadAdminData()
   }, [])
 
   useEffect(() => {
@@ -216,11 +218,25 @@ export default function AdminDashboardPage() {
   }, [tab])
 
   async function loadAdminData() {
-    const response = await fetch("/api/admin/data", { cache: "no-store" })
-    if (!response.ok) throw new Error("Unable to load admin data")
-    const data = await response.json()
-    setOrders(data.orders || [])
-    setAllReviews(data.allReviews || [])
+    setAdminDataLoading(true)
+    setAdminDataError(null)
+    try {
+      const response = await fetch("/api/admin/data", { cache: "no-store" })
+      const text = await response.text()
+      let payload: any = null
+      try { payload = text ? JSON.parse(text) : null } catch { /* keep raw text */ }
+      if (!response.ok) {
+        const detail = payload?.error || text?.slice(0, 200) || `HTTP ${response.status}`
+        throw new Error(detail)
+      }
+      setOrders(payload?.orders || [])
+      setAllReviews(payload?.allReviews || [])
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to load admin data"
+      setAdminDataError(message)
+    } finally {
+      setAdminDataLoading(false)
+    }
   }
 
   async function loadAnalytics() {
@@ -746,6 +762,22 @@ export default function AdminDashboardPage() {
             </button>
           ))}
         </div>
+
+        {adminDataError && (
+          <div className="mb-4 flex items-start justify-between gap-3 rounded-xl border border-red-500/40 bg-red-500/10 p-4">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-red-500">Couldn't load orders &amp; reviews</p>
+              <p className="mt-1 break-all text-xs text-red-400">{adminDataError}</p>
+            </div>
+            <button
+              onClick={() => loadAdminData()}
+              disabled={adminDataLoading}
+              className="shrink-0 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600 disabled:opacity-50"
+            >
+              {adminDataLoading ? "Retrying…" : "Try again"}
+            </button>
+          </div>
+        )}
 
         {tab === "overview" && (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
