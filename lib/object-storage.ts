@@ -84,3 +84,49 @@ export async function findPublicObject(relativePath: string): Promise<File | nul
   }
   return null
 }
+
+export interface PublicUploadEntry {
+  filename: string
+  publicUrl: string
+  contentType: string
+  size: number
+  updated: string
+}
+
+export async function listPublicUploads(): Promise<PublicUploadEntry[]> {
+  const seen = new Map<string, PublicUploadEntry>()
+  for (const { bucketName, prefix } of getPublicSearchRoots()) {
+    const uploadPrefix = `${prefix}/uploads/`
+    const [files] = await objectStorageClient
+      .bucket(bucketName)
+      .getFiles({ prefix: uploadPrefix })
+    for (const file of files) {
+      const filename = file.name.slice(uploadPrefix.length)
+      if (!filename || filename.includes("/")) continue
+      if (seen.has(filename)) continue
+      const [meta] = await file.getMetadata()
+      seen.set(filename, {
+        filename,
+        publicUrl: `/objects/uploads/${filename}`,
+        contentType: meta.contentType || "application/octet-stream",
+        size: typeof meta.size === "number" ? meta.size : Number(meta.size || 0),
+        updated: meta.updated || meta.timeCreated || new Date(0).toISOString(),
+      })
+    }
+  }
+  return Array.from(seen.values()).sort((a, b) => (a.updated < b.updated ? 1 : -1))
+}
+
+export async function deletePublicUpload(filename: string): Promise<boolean> {
+  let deleted = false
+  for (const { bucketName, prefix } of getPublicSearchRoots()) {
+    const fullName = `${prefix}/uploads/${filename}`
+    const file = objectStorageClient.bucket(bucketName).file(fullName)
+    const [exists] = await file.exists()
+    if (exists) {
+      await file.delete({ ignoreNotFound: true })
+      deleted = true
+    }
+  }
+  return deleted
+}

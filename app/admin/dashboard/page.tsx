@@ -110,7 +110,15 @@ interface AnalyticsData {
   dailySeries: Array<{ day: string; views: number }>
 }
 
-type Tab = "overview" | "products" | "categories" | "orders" | "offers" | "reviews" | "reports" | "analytics" | "admins" | "settings"
+type Tab = "overview" | "products" | "categories" | "orders" | "offers" | "reviews" | "reports" | "analytics" | "media" | "admins" | "settings"
+
+interface MediaItem {
+  filename: string
+  publicUrl: string
+  contentType: string
+  size: number
+  updated: string
+}
 
 type AdminRole = "owner" | "staff"
 
@@ -267,6 +275,13 @@ export default function AdminDashboardPage() {
   const [reviewAddForm, setReviewAddForm] = useState({ productId: "", name: "", rating: 5, comment: "" })
   const [savingReview, setSavingReview] = useState(false)
   const [offerProductPicker, setOfferProductPicker] = useState<Record<string, string>>({})
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
+  const [mediaLoading, setMediaLoading] = useState(false)
+  const [mediaError, setMediaError] = useState<string | null>(null)
+  const [mediaFilter, setMediaFilter] = useState<"all" | "image" | "video">("all")
+  const [mediaSearch, setMediaSearch] = useState("")
+  const [mediaCopiedFile, setMediaCopiedFile] = useState<string | null>(null)
+  const [mediaUploading, setMediaUploading] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -300,6 +315,7 @@ export default function AdminDashboardPage() {
     if (tab === "analytics") loadAnalytics()
     if (tab === "reports") loadReport(reportRange)
     if (tab === "admins") loadAdminUsers()
+    if (tab === "media") loadMedia()
   }, [tab])
 
   useEffect(() => {
@@ -404,6 +420,82 @@ export default function AdminDashboardPage() {
       setAdminUsersError(err instanceof Error ? err.message : "Unable to load admins")
     } finally {
       setAdminUsersLoading(false)
+    }
+  }
+
+  async function loadMedia() {
+    setMediaLoading(true)
+    setMediaError(null)
+    try {
+      const res = await fetch("/api/admin/uploads", { cache: "no-store" })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(payload?.error || `HTTP ${res.status}`)
+      setMediaItems((payload.items || []) as MediaItem[])
+    } catch (err) {
+      setMediaError(err instanceof Error ? err.message : "Unable to load media")
+    } finally {
+      setMediaLoading(false)
+    }
+  }
+
+  async function copyMediaUrl(item: MediaItem) {
+    const absolute = typeof window !== "undefined"
+      ? new URL(item.publicUrl, window.location.origin).toString()
+      : item.publicUrl
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(absolute)
+      } else if (typeof document !== "undefined") {
+        const ta = document.createElement("textarea")
+        ta.value = absolute
+        ta.style.position = "fixed"
+        ta.style.opacity = "0"
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand("copy")
+        document.body.removeChild(ta)
+      }
+      setMediaCopiedFile(item.filename)
+      setTimeout(() => setMediaCopiedFile((cur) => (cur === item.filename ? null : cur)), 1500)
+      showToast("URL copied to clipboard")
+    } catch {
+      showToast("Could not copy URL", "error")
+    }
+  }
+
+  async function removeMediaItem(item: MediaItem) {
+    if (!confirm(`Delete ${item.filename}? This cannot be undone.`)) return
+    try {
+      const res = await csrfFetch(`/api/admin/uploads?filename=${encodeURIComponent(item.filename)}`, {
+        method: "DELETE",
+      })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(payload?.error || `HTTP ${res.status}`)
+      setMediaItems((prev) => prev.filter((m) => m.filename !== item.filename))
+      showToast("File deleted")
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to delete", "error")
+    }
+  }
+
+  async function uploadMediaFiles(files: FileList) {
+    setMediaUploading(true)
+    let added = 0
+    try {
+      for (const file of Array.from(files)) {
+        try {
+          await uploadFile(file)
+          added++
+        } catch (err) {
+          showToast(err instanceof Error ? err.message : "Upload failed", "error")
+        }
+      }
+      if (added > 0) {
+        await loadMedia()
+        showToast(`Uploaded ${added} file${added === 1 ? "" : "s"}`)
+      }
+    } finally {
+      setMediaUploading(false)
     }
   }
 
@@ -938,6 +1030,7 @@ export default function AdminDashboardPage() {
     { id: "reviews", label: "Reviews", icon: <Star className="h-4 w-4" /> },
     { id: "reports", label: "Sales Reports", icon: <BarChart3 className="h-4 w-4" /> },
     { id: "analytics", label: "Analytics", icon: <Activity className="h-4 w-4" /> },
+    { id: "media", label: "Media Library", icon: <ImageIcon className="h-4 w-4" /> },
     ...(currentUser?.role === "owner"
       ? ([{ id: "admins" as Tab, label: "Admin Users", icon: <ShieldCheck className="h-4 w-4" /> }])
       : []),
@@ -1557,6 +1650,162 @@ export default function AdminDashboardPage() {
                 </section>
               </>
             ) : null}
+          </div>
+        )}
+
+        {tab === "media" && (
+          <div className="grid gap-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h1 className="text-xl font-bold text-foreground">Media Library</h1>
+                <p className="text-sm text-muted-foreground">All images and videos uploaded to your store. Reuse URLs across products without re-uploading.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className={`flex cursor-pointer items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 ${mediaUploading ? "opacity-60" : ""}`}>
+                  <Upload className="h-4 w-4" />
+                  {mediaUploading ? "Uploading…" : "Upload"}
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,video/*"
+                    className="hidden"
+                    disabled={mediaUploading}
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        uploadMediaFiles(e.target.files)
+                        e.target.value = ""
+                      }
+                    }}
+                  />
+                </label>
+                <button onClick={loadMedia} disabled={mediaLoading} className="rounded-lg border border-border bg-secondary px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary/80 disabled:opacity-50">
+                  {mediaLoading ? "Refreshing…" : "Refresh"}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3">
+              <div className="flex gap-1 rounded-lg bg-secondary p-1">
+                {(["all", "image", "video"] as const).map((kind) => (
+                  <button
+                    key={kind}
+                    onClick={() => setMediaFilter(kind)}
+                    className={`rounded-md px-3 py-1.5 text-xs font-semibold capitalize ${mediaFilter === kind ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    {kind === "all" ? "All" : kind === "image" ? "Images" : "Videos"}
+                  </button>
+                ))}
+              </div>
+              <div className="relative ml-auto flex-1 min-w-[200px] max-w-md">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={mediaSearch}
+                  onChange={(e) => setMediaSearch(e.target.value)}
+                  placeholder="Search by filename…"
+                  className="h-9 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+            </div>
+
+            {mediaError && (
+              <div className="flex items-start justify-between gap-3 rounded-xl border border-red-500/40 bg-red-500/10 p-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-red-500">Couldn't load media</p>
+                  <p className="mt-1 break-all text-xs text-red-400">{mediaError}</p>
+                </div>
+                <button onClick={loadMedia} className="shrink-0 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600">Try again</button>
+              </div>
+            )}
+
+            {mediaLoading && mediaItems.length === 0 ? (
+              <div className="rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">Loading media…</div>
+            ) : (() => {
+              const filtered = mediaItems
+                .filter((m) => {
+                  if (mediaFilter === "image") return m.contentType.startsWith("image/")
+                  if (mediaFilter === "video") return m.contentType.startsWith("video/")
+                  return true
+                })
+                .filter((m) => (mediaSearch ? m.filename.toLowerCase().includes(mediaSearch.toLowerCase()) : true))
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center">
+                    <ImageIcon className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+                    <p className="text-sm font-semibold text-foreground">
+                      {mediaItems.length === 0 ? "No uploads yet" : "No matches for this filter"}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {mediaItems.length === 0
+                        ? "Files you upload from the product form or from this page will appear here."
+                        : "Try a different filter or search term."}
+                    </p>
+                  </div>
+                )
+              }
+
+              return (
+                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  {filtered.map((item) => {
+                    const isVideo = item.contentType.startsWith("video/")
+                    const sizeKb = item.size > 0 ? item.size / 1024 : 0
+                    const sizeLabel = sizeKb >= 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : sizeKb > 0 ? `${sizeKb.toFixed(0)} KB` : ""
+                    return (
+                      <div key={item.filename} className="overflow-hidden rounded-xl border border-border bg-card">
+                        <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden bg-secondary">
+                          {isVideo ? (
+                            <>
+                              <video src={item.publicUrl} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+                              <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/20">
+                                <Video className="h-10 w-10 text-white drop-shadow-lg" />
+                              </div>
+                            </>
+                          ) : (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={item.publicUrl} alt={item.filename} className="h-full w-full object-cover" loading="lazy" />
+                          )}
+                          <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                            {isVideo ? "Video" : "Image"}
+                          </span>
+                        </div>
+                        <div className="p-3">
+                          <p className="truncate text-xs font-semibold text-foreground" title={item.filename}>{item.filename}</p>
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">
+                            {sizeLabel}
+                            {sizeLabel && item.updated && item.updated !== new Date(0).toISOString() ? " · " : ""}
+                            {item.updated && item.updated !== new Date(0).toISOString() ? new Date(item.updated).toLocaleDateString() : ""}
+                          </p>
+                          <div className="mt-3 flex gap-2">
+                            <button
+                              onClick={() => copyMediaUrl(item)}
+                              className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-primary px-2 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                            >
+                              {mediaCopiedFile === item.filename ? <><Check className="h-3.5 w-3.5" /> Copied</> : <>Copy URL</>}
+                            </button>
+                            <a
+                              href={item.publicUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded-lg border border-border bg-secondary px-2 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80"
+                              title="Open in new tab"
+                            >
+                              View
+                            </a>
+                            <button
+                              onClick={() => removeMediaItem(item)}
+                              className="rounded-lg border border-red-500/40 bg-red-500/10 px-2 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-500/20"
+                              title="Delete file"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()}
           </div>
         )}
 

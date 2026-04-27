@@ -86,6 +86,64 @@ export async function fetchObject(relativePath: string): Promise<FetchedObject |
   }
 }
 
+export interface UploadEntry {
+  filename: string
+  publicUrl: string
+  contentType: string
+  size: number
+  updated: string
+}
+
+export async function listUploads(): Promise<UploadEntry[]> {
+  const backend = getStorageBackend()
+  if (backend === "netlify") {
+    const { getStore } = await import("@netlify/blobs")
+    const store = getStore({ name: NETLIFY_STORE_NAME, consistency: "strong" })
+    const result = await store.list()
+    const entries: UploadEntry[] = []
+    for (const blob of result.blobs || []) {
+      const filename = blob.key
+      try {
+        const meta = await store.getMetadata(filename)
+        const md = ((meta?.metadata || {}) as { contentType?: string }) || {}
+        entries.push({
+          filename,
+          publicUrl: `/objects/uploads/${filename}`,
+          contentType: md.contentType || guessContentType(filename),
+          size: 0,
+          updated: new Date(0).toISOString(),
+        })
+      } catch {
+        entries.push({
+          filename,
+          publicUrl: `/objects/uploads/${filename}`,
+          contentType: guessContentType(filename),
+          size: 0,
+          updated: new Date(0).toISOString(),
+        })
+      }
+    }
+    return entries.sort((a, b) => (a.filename < b.filename ? 1 : -1))
+  }
+  const { listPublicUploads } = await import("@/lib/object-storage")
+  return listPublicUploads()
+}
+
+export async function deleteUpload(filename: string): Promise<boolean> {
+  if (!filename || filename.includes("/") || filename.includes("\\") || filename.includes("..")) {
+    return false
+  }
+  const backend = getStorageBackend()
+  if (backend === "netlify") {
+    const { getStore } = await import("@netlify/blobs")
+    const store = getStore({ name: NETLIFY_STORE_NAME, consistency: "strong" })
+    await store.delete(filename)
+    return true
+  }
+  const { deletePublicUpload } = await import("@/lib/object-storage")
+  return deletePublicUpload(filename)
+}
+
 function guessContentType(filename: string): string {
   const ext = path.extname(filename).toLowerCase()
   const map: Record<string, string> = {
