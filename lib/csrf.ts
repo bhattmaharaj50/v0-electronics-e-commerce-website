@@ -1,8 +1,8 @@
 import { cookies } from "next/headers"
 import { randomBytes, timingSafeEqual } from "crypto"
+import { CSRF_COOKIE, CSRF_HEADER } from "@/lib/csrf-shared"
 
-export const CSRF_COOKIE = "munex_csrf"
-export const CSRF_HEADER = "x-csrf-token"
+export { CSRF_COOKIE, CSRF_HEADER }
 
 export function makeCsrfToken(): string {
   return randomBytes(32).toString("hex")

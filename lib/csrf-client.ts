@@ -1,6 +1,6 @@
 "use client"
 
-import { CSRF_COOKIE, CSRF_HEADER } from "@/lib/csrf"
+import { CSRF_COOKIE, CSRF_HEADER } from "@/lib/csrf-shared"
 
 function readCookie(name: string): string {
   if (typeof document === "undefined") return ""
