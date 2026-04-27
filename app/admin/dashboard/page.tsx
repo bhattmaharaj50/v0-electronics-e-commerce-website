@@ -2416,7 +2416,7 @@ export default function AdminDashboardPage() {
   )
 }
 
-function Stat({ title, value, tone = "normal" }: { title: string; value: number; tone?: "normal" | "warning" }) {
+function Stat({ title, value, tone = "normal" }: { title: string; value: number | string; tone?: "normal" | "warning" }) {
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <p className="text-xs text-muted-foreground">{title}</p>

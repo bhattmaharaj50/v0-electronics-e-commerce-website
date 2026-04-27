@@ -13,6 +13,14 @@ export default function AdminLoginPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [checking, setChecking] = useState(true)
+  const [expiredNotice, setExpiredNotice] = useState(false)
+
+  // Surface a clear notice when the user landed here because their session expired.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("expired") === "1") setExpiredNotice(true)
+  }, [])
 
   // If already logged in (cookie session), jump straight to the dashboard.
   useEffect(() => {
@@ -81,6 +89,12 @@ export default function AdminLoginPage() {
             <Lock className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium text-muted-foreground">Sign in to continue</span>
           </div>
+
+          {expiredNotice && (
+            <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+              Your session expired. Please sign in again to continue.
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
