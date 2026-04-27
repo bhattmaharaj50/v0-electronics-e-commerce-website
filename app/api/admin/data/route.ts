@@ -7,6 +7,7 @@ import {
   updateReview,
   saveReview,
   getAdminData,
+  getStoreData,
   markOrderDispatched,
   markOrderPaid,
   markOrderReady,
@@ -16,6 +17,7 @@ import {
   updateOrderStatus,
 } from "@/lib/db"
 
+export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
@@ -29,8 +31,21 @@ export async function GET() {
   try {
     return NextResponse.json(await getAdminData(), { headers: NO_STORE_HEADERS })
   } catch (error) {
-    console.error(error)
-    return NextResponse.json({ error: "Unable to load admin data" }, { status: 500 })
+    // Soft-fall back to store-only data so the dashboard renders products,
+    // categories, and settings even if the orders/reviews queries fail.
+    const message = error instanceof Error ? error.message : "Unable to load admin data"
+    console.error("[admin/data] route error:", message)
+    try {
+      const store = await getStoreData()
+      return NextResponse.json(
+        { ...store, orders: [], allReviews: [], warning: message },
+        { headers: NO_STORE_HEADERS },
+      )
+    } catch (innerError) {
+      const inner = innerError instanceof Error ? innerError.message : "Database unreachable"
+      console.error("[admin/data] hard failure:", inner)
+      return NextResponse.json({ error: inner }, { status: 500, headers: NO_STORE_HEADERS })
+    }
   }
 }
 

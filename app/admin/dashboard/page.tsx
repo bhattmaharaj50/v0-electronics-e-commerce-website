@@ -231,6 +231,11 @@ export default function AdminDashboardPage() {
       }
       setOrders(payload?.orders || [])
       setAllReviews(payload?.allReviews || [])
+      // The API may include a partial-failure warning (e.g. orders query
+      // timed out but store data loaded). Surface it without blocking the UI.
+      if (payload?.warning) {
+        setAdminDataError(`Partial load: ${payload.warning}`)
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to load admin data"
       setAdminDataError(message)
@@ -255,6 +260,11 @@ export default function AdminDashboardPage() {
         throw new Error("Server returned no analytics data")
       }
       setAnalytics(payload.analytics)
+      // Backend now degrades gracefully and may include a `warning` field
+      // when some queries failed. Show it as a soft notice, not a blocker.
+      if (payload.warning) {
+        setAnalyticsError(`Partial data: ${payload.warning}`)
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to load analytics"
       setAnalyticsError(message)
@@ -1079,7 +1089,7 @@ export default function AdminDashboardPage() {
 
         {tab === "analytics" && (
           <div className="grid gap-4">
-            {analyticsError ? (
+            {analyticsError && !analytics ? (
               <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-5">
                 <p className="text-sm font-semibold text-red-500">Couldn't load analytics</p>
                 <p className="mt-1 text-xs text-red-400 break-all">{analyticsError}</p>
@@ -1093,6 +1103,21 @@ export default function AdminDashboardPage() {
               </div>
             ) : !analytics ? <p className="text-sm text-muted-foreground">Loading analytics…</p> : (
               <>
+                {analyticsError && (
+                  <div className="flex items-start justify-between gap-3 rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-yellow-500">Showing what we could load</p>
+                      <p className="mt-1 break-all text-xs text-yellow-400/80">{analyticsError}</p>
+                    </div>
+                    <button
+                      onClick={() => loadAnalytics()}
+                      disabled={analyticsLoading}
+                      className="shrink-0 rounded-lg border border-yellow-500/60 px-3 py-1.5 text-xs font-semibold text-yellow-300 hover:bg-yellow-500/20 disabled:opacity-50"
+                    >
+                      {analyticsLoading ? "Refreshing…" : "Refresh"}
+                    </button>
+                  </div>
+                )}
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                   <Stat title="Total views" value={analytics.totalViews} />
                   <Stat title="Unique visitors" value={analytics.uniqueVisitors} />

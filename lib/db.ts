@@ -699,50 +699,152 @@ export async function saveGeoCache(ip: string, geo: { country?: string | null; c
   )
 }
 
+export function emptyAnalytics(): TrafficAnalytics {
+  return {
+    totalViews: 0,
+    uniqueVisitors: 0,
+    viewsLast24h: 0,
+    viewsLast7d: 0,
+    viewsLast30d: 0,
+    topPages: [],
+    topCountries: [],
+    topCities: [],
+    topReferrers: [],
+    recentVisits: [],
+    dailySeries: [],
+  }
+}
+
+// Run a SQL query with a timeout fallback, so one slow/failed query never
+// blocks the whole analytics dashboard. Returns `fallback` on error/timeout.
+async function safeAnalyticsQuery<T>(
+  label: string,
+  fn: () => Promise<T>,
+  fallback: T,
+  timeoutMs = 6000,
+): Promise<T> {
+  try {
+    return await Promise.race<T>([
+      fn(),
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs),
+      ),
+    ])
+  } catch (err) {
+    console.error(`[analytics:${label}]`, err instanceof Error ? err.message : err)
+    return fallback
+  }
+}
+
 export async function getTrafficAnalytics(): Promise<TrafficAnalytics> {
   await ensureDatabase()
+
   // Exclude admin/api paths from analytics so they don't pollute numbers
   const exclude = "path NOT LIKE '/admin%' AND path NOT LIKE '/api%'"
-  const [totals, day, week, month, pages, countries, cities, referrers, recent, daily] = await Promise.all([
-    pool.query(`SELECT COUNT(*)::int AS views, COUNT(DISTINCT session_id)::int AS visitors FROM page_views WHERE ${exclude}`),
-    pool.query(`SELECT COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '24 hours'`),
-    pool.query(`SELECT COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '7 days'`),
-    pool.query(`SELECT COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '30 days'`),
-    pool.query(`SELECT path, COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '30 days' GROUP BY path ORDER BY views DESC LIMIT 10`),
-    pool.query(`SELECT COALESCE(NULLIF(country, ''), 'Unknown') AS label, COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '30 days' GROUP BY label ORDER BY views DESC LIMIT 10`),
-    pool.query(`SELECT COALESCE(NULLIF(city, ''), 'Unknown') AS label, COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '30 days' GROUP BY label ORDER BY views DESC LIMIT 10`),
-    pool.query(`SELECT COALESCE(NULLIF(referrer, ''), 'Direct') AS label, COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '30 days' GROUP BY label ORDER BY views DESC LIMIT 10`),
-    pool.query(`SELECT path, country, city, referrer, user_agent, created_at FROM page_views WHERE ${exclude} ORDER BY created_at DESC LIMIT 25`),
-    pool.query(`
-      WITH days AS (
-        SELECT generate_series(
-          date_trunc('day', NOW() - INTERVAL '13 days'),
-          date_trunc('day', NOW()),
-          INTERVAL '1 day'
-        ) AS day
+
+  const totals = safeAnalyticsQuery(
+    "totals",
+    () => pool.query(`SELECT COUNT(*)::int AS views, COUNT(DISTINCT session_id)::int AS visitors FROM page_views WHERE ${exclude}`),
+    { rows: [{ views: 0, visitors: 0 }] } as any,
+  )
+  const day = safeAnalyticsQuery(
+    "24h",
+    () => pool.query(`SELECT COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '24 hours'`),
+    { rows: [{ views: 0 }] } as any,
+  )
+  const week = safeAnalyticsQuery(
+    "7d",
+    () => pool.query(`SELECT COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '7 days'`),
+    { rows: [{ views: 0 }] } as any,
+  )
+  const month = safeAnalyticsQuery(
+    "30d",
+    () => pool.query(`SELECT COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '30 days'`),
+    { rows: [{ views: 0 }] } as any,
+  )
+  const pages = safeAnalyticsQuery(
+    "topPages",
+    () => pool.query(`SELECT path, COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '30 days' GROUP BY path ORDER BY views DESC LIMIT 10`),
+    { rows: [] } as any,
+  )
+  const countries = safeAnalyticsQuery(
+    "topCountries",
+    () => pool.query(`SELECT COALESCE(NULLIF(country, ''), 'Unknown') AS label, COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '30 days' GROUP BY label ORDER BY views DESC LIMIT 10`),
+    { rows: [] } as any,
+  )
+  const cities = safeAnalyticsQuery(
+    "topCities",
+    () => pool.query(`SELECT COALESCE(NULLIF(city, ''), 'Unknown') AS label, COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '30 days' GROUP BY label ORDER BY views DESC LIMIT 10`),
+    { rows: [] } as any,
+  )
+  const referrers = safeAnalyticsQuery(
+    "topReferrers",
+    () => pool.query(`SELECT COALESCE(NULLIF(referrer, ''), 'Direct') AS label, COUNT(*)::int AS views FROM page_views WHERE ${exclude} AND created_at > NOW() - INTERVAL '30 days' GROUP BY label ORDER BY views DESC LIMIT 10`),
+    { rows: [] } as any,
+  )
+  const recent = safeAnalyticsQuery(
+    "recentVisits",
+    () => pool.query(`SELECT path, country, city, referrer, user_agent, created_at FROM page_views WHERE ${exclude} ORDER BY created_at DESC LIMIT 25`),
+    { rows: [] } as any,
+  )
+  // Daily series: prefer a lightweight client-side roll-up (no LEFT JOIN /
+  // generate_series) which is dramatically faster on serverless and degrades
+  // gracefully if it times out.
+  const daily = safeAnalyticsQuery(
+    "dailySeries",
+    async () => {
+      const res = await pool.query(
+        `SELECT TO_CHAR(date_trunc('day', created_at), 'YYYY-MM-DD') AS day, COUNT(*)::int AS views
+         FROM page_views
+         WHERE ${exclude} AND created_at > NOW() - INTERVAL '14 days'
+         GROUP BY day
+         ORDER BY day ASC`,
       )
-      SELECT TO_CHAR(days.day, 'YYYY-MM-DD') AS day, COALESCE(COUNT(pv.id), 0)::int AS views
-      FROM days
-      LEFT JOIN page_views pv
-        ON date_trunc('day', pv.created_at) = days.day
-        AND pv.path NOT LIKE '/admin%'
-        AND pv.path NOT LIKE '/api%'
-      GROUP BY days.day
-      ORDER BY days.day ASC
-    `),
-  ])
+      return res
+    },
+    { rows: [] } as any,
+  )
+
+  const [
+    totalsR,
+    dayR,
+    weekR,
+    monthR,
+    pagesR,
+    countriesR,
+    citiesR,
+    referrersR,
+    recentR,
+    dailyR,
+  ] = await Promise.all([totals, day, week, month, pages, countries, cities, referrers, recent, daily])
+
+  // Build a complete 14-day series so the chart always has a full x-axis,
+  // even if some days had zero traffic.
+  const dailyMap = new Map<string, number>()
+  for (const r of dailyR.rows as Array<{ day: string; views: number }>) {
+    dailyMap.set(r.day, Number(r.views) || 0)
+  }
+  const dailySeries: Array<{ day: string; views: number }> = []
+  const today = new Date()
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(today)
+    d.setUTCHours(0, 0, 0, 0)
+    d.setUTCDate(d.getUTCDate() - i)
+    const key = d.toISOString().slice(0, 10)
+    dailySeries.push({ day: key, views: dailyMap.get(key) ?? 0 })
+  }
 
   return {
-    totalViews: totals.rows[0].views,
-    uniqueVisitors: totals.rows[0].visitors,
-    viewsLast24h: day.rows[0].views,
-    viewsLast7d: week.rows[0].views,
-    viewsLast30d: month.rows[0].views,
-    topPages: pages.rows as PageView[],
-    topCountries: countries.rows as LocationStat[],
-    topCities: cities.rows as LocationStat[],
-    topReferrers: referrers.rows as LocationStat[],
-    recentVisits: recent.rows.map((r: any) => ({
+    totalViews: Number(totalsR.rows[0]?.views) || 0,
+    uniqueVisitors: Number(totalsR.rows[0]?.visitors) || 0,
+    viewsLast24h: Number(dayR.rows[0]?.views) || 0,
+    viewsLast7d: Number(weekR.rows[0]?.views) || 0,
+    viewsLast30d: Number(monthR.rows[0]?.views) || 0,
+    topPages: pagesR.rows as PageView[],
+    topCountries: countriesR.rows as LocationStat[],
+    topCities: citiesR.rows as LocationStat[],
+    topReferrers: referrersR.rows as LocationStat[],
+    recentVisits: (recentR.rows as any[]).map((r) => ({
       path: r.path,
       country: r.country || "Unknown",
       city: r.city || "Unknown",
@@ -750,6 +852,6 @@ export async function getTrafficAnalytics(): Promise<TrafficAnalytics> {
       userAgent: r.user_agent || "",
       createdAt: toIso(r.created_at),
     })),
-    dailySeries: daily.rows.map((r: any) => ({ day: r.day, views: r.views })),
+    dailySeries,
   }
 }

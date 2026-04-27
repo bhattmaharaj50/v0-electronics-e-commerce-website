@@ -1,4 +1,5 @@
 import { HeroSection } from "@/components/home/hero-section"
+import { TrustBand } from "@/components/home/trust-band"
 import { AdVideoSection } from "@/components/home/ad-video-section"
 import { HomepageVideosSection } from "@/components/home/homepage-videos-section"
 import { CategoriesSection } from "@/components/home/categories-section"
@@ -13,6 +14,7 @@ export default function HomePage() {
   return (
     <>
       <HeroSection />
+      <TrustBand />
       <AdVideoSection />
       <HomepageVideosSection />
       <CategoriesSection />
